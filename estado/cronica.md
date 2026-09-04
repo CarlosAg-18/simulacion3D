@@ -52,3 +52,26 @@ Cada entrada es un latido del servidor: la fecha real, el momento que vive el pu
 - Inés 181 y Damián 211 forman una familia
 - Bruno 221 y Hugo 228 forman una familia
 - La caravana compra 40 de grano, 40 de madera, 10 de piedra, 10 de mineral; el pueblo gana 233 monedas
+
+## 2026-09-04 15:45 UTC · Día 156, otoño del año 10, 03:35
+- 39 habitantes, 86 difuntos en total, 21 obras levantadas, tesoro de 690 monedas. Grano 555, madera 187, piedra 74.
+- Gobierna Bruno 127 (decreto: saber), popularidad 72 %.
+- Saberes: arado, cartografia, alumbrado, medicina, escuela, molino, vigia, herreria.
+- Desde el último latido pasaron 78 días: la población pasó de 40 a 39, hubo 46 difuntos, se levantaron 4 obras.
+- 232 sucesos notables; los últimos:
+- Termina una herrería: el pueblo crece
+- Se instalan 1 farol más por los caminos
+- Teresa 221 y Beatriz 226 forman una familia
+- Teresa y Sancho 199 forman una familia
+- Aúllan lobos en el bosque; los guardias corren a la granja
+- Bruno 127 proclama: decreto de saber: se protege a los estudiosos
+- Un lobo se lleva una gallina
+- Un lobo se lleva una gallina
+- Los lobos se retiran con 2 gallinas
+- Se declara un incendio en casa de Pilar 153
+- Los vecinos apagan el incendio a cubos de agua del pozo
+- Se declara un incendio en casa de Rocío 203
+- Los vecinos apagan el incendio a cubos de agua del pozo
+- Bruno 127 proclama: decreto de saber: se protege a los estudiosos
+- La caravana compra 40 de grano, 40 de madera, 10 de piedra, 40 de mineral, 30 de hierro, 20 de oro; el pueblo gana 635 monedas
+- Rocío 203 la agricultora muere de vieja
