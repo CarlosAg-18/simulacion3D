@@ -75,3 +75,26 @@ Cada entrada es un latido del servidor: la fecha real, el momento que vive el pu
 - Bruno 127 proclama: decreto de saber: se protege a los estudiosos
 - La caravana compra 40 de grano, 40 de madera, 10 de piedra, 40 de mineral, 30 de hierro, 20 de oro; el pueblo gana 635 monedas
 - Rocío 203 la agricultora muere de vieja
+
+## 2026-09-04 18:48 UTC · Día 201, otoño del año 13, 21:55
+- 40 habitantes, 120 difuntos en total, 21 obras levantadas, tesoro de 920 monedas. Grano 542, madera 200, piedra 79.
+- Gobierna Elena 119 (decreto: fiesta), popularidad 41 %.
+- Saberes: arado, cartografia, alumbrado, medicina, escuela, molino, vigia, herreria, orfebreria.
+- Desde el último latido pasaron 45 días: la población pasó de 39 a 40, hubo 34 difuntos.
+- 163 sucesos notables; los últimos:
+- Pilar 153 la leñadora muere de vieja
+- Llega Jorge 164 por el camino del oeste y se instala como minero
+- Carmen la leñadora muere de vieja
+- Damián 135 y Lucía 162 forman una familia
+- Llega Yago 167 por el camino del sur y se instala como minero
+- La caravana compra 40 de grano, 40 de madera, 20 de piedra, 40 de mineral, 30 de oro; el pueblo gana 1010 monedas
+- Sara 193 la minera muere de vieja
+- Jorge 156 ya es adulto y se hace aldeano
+- Elena 119 proclama: decreto de fiesta: feria pagada por el castillo
+- Llega Rocío 172 por el camino del sur y se instala como minera
+- Teresa 144 y Zoe 154 forman una familia
+- Bruno 89 el guardia muere de enfermedad
+- Damián 91 y Úrsula 155 forman una familia
+- Llega Félix 173 por el camino del oeste y se instala como agricultor
+- Se declara un incendio en casa de Gema 204
+- Los vecinos apagan el incendio a cubos de agua del pozo
