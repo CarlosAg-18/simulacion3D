@@ -98,3 +98,26 @@ Cada entrada es un latido del servidor: la fecha real, el momento que vive el pu
 - Llega Félix 173 por el camino del oeste y se instala como agricultor
 - Se declara un incendio en casa de Gema 204
 - Los vecinos apagan el incendio a cubos de agua del pozo
+
+## 2026-09-04 22:05 UTC · Día 251, otoño del año 16, 04:25
+- 40 habitantes, 139 difuntos en total, 21 obras levantadas, tesoro de 1159 monedas. Grano 536, madera 200, piedra 84.
+- Gobierna Elena 119 (decreto: saber), popularidad 48 %.
+- Saberes: arado, cartografia, alumbrado, medicina, escuela, molino, vigia, herreria, orfebreria.
+- Desde el último latido pasaron 50 días: la población pasó de 40 a 40, hubo 19 difuntos.
+- 124 sucesos notables; los últimos:
+- Se declara un incendio en casa de Damián 114
+- Los vecinos apagan el incendio a cubos de agua del pozo
+- La caravana compra 40 de grano, 40 de madera, 10 de piedra, 40 de mineral, 20 de hierro, 30 de oro; el pueblo gana 1075 monedas
+- Elena 119 proclama: decreto de saber: se protege a los estudiosos
+- Se declara un incendio en casa de Damián 114
+- Los vecinos apagan el incendio a cubos de agua del pozo
+- Pedro 102 el agricultor muere de viejo
+- Llega Pilar 155 por el camino del oeste y se instala como leñadora
+- Se declara un incendio en casa de Jorge 110
+- Los vecinos apagan el incendio a cubos de agua del pozo
+- Óscar 140 y Gonzalo 144 forman una familia
+- Aúllan lobos en el bosque; los guardias corren a la granja
+- Diego 148 ya es adulto y se hace minero
+- Elena 119 proclama: decreto de saber: se protege a los estudiosos
+- Un lobo se lleva una gallina
+- Un lobo se lleva una gallina
