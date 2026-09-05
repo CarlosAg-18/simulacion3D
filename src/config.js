@@ -20,7 +20,7 @@ export const CONFIG = {
     grassTint: { Primavera: 0x8FCF7A, Verano: 0xFFFFFF, Otoño: 0xF0C08A, Invierno: 0xC9D2DC },
     leafTint: { Primavera: 0xB8F0A8, Verano: 0xFFFFFF, Otoño: 0xF0A050, Invierno: 0xA8B4C4 }
   },
-  agents: { agricultor: 4, comerciante: 2, minero: 3, lenador: 2, aldeano: 5, clerigo: 1, guardia: 2 },
+  agents: { agricultor: 4, comerciante: 2, minero: 3, lenador: 2, aldeano: 5, clerigo: 1, guardia: 2, pescador: 1 },
   // Saberes: el pueblo acumula conocimiento y desbloquea avances en este orden de prioridad.
   tech: {
     pointsPerDayBase: 0.5, pointsPerClerigo: 0.5, pointsPerSabio: 1.6, schoolMul: 2.0, policyMul: 1.6,
@@ -29,20 +29,58 @@ export const CONFIG = {
       { id: 'cartografia', label: 'Cartografía', cost: 10, requires: [], desc: 'salen expediciones a explorar el valle' },
       { id: 'alumbrado', label: 'Alumbrado de aceite', cost: 12, requires: [], desc: 'se instalan faroles por los caminos' },
       { id: 'medicina', label: 'Medicina de hierbas', cost: 14, requires: [], desc: 'los enfermos sanan antes' },
-      { id: 'escuela', label: 'Escuela', cost: 18, requires: [], desc: 'se puede levantar una escuela con su sabio' },
-      { id: 'molino', label: 'Molino de viento', cost: 16, requires: ['arado'], desc: 'se puede levantar un molino' },
-      { id: 'vigia', label: 'Torre de vigía', cost: 20, requires: [], desc: 'se puede levantar una torre para los guardias' },
-      { id: 'herreria', label: 'Herrería', cost: 22, requires: ['cartografia'], needsResource: 'hierro', desc: 'herramientas de hierro para todos los oficios' },
-      { id: 'orfebreria', label: 'Orfebrería', cost: 26, requires: ['herreria'], needsResource: 'oro', desc: 'el oro se vende al doble' }
+      { id: 'escuela', label: 'Escuela', cost: 24, requires: [], desc: 'se puede levantar una escuela con su sabio' },
+      { id: 'molino', label: 'Molino de viento', cost: 22, requires: ['arado'], desc: 'se puede levantar un molino' },
+      { id: 'vigia', label: 'Torre de vigía', cost: 28, requires: [], desc: 'se puede levantar una torre para los guardias' },
+      { id: 'herreria', label: 'Herrería', cost: 32, requires: ['cartografia'], needsResource: 'hierro', res: { hierro: 4 }, desc: 'herramientas de hierro para todos los oficios' },
+      { id: 'acequias', label: 'Acequias', cost: 32, requires: ['arado'], res: { madera: 20 }, desc: 'los campos aguantan las sequías y rinden un 10 % más' },
+      { id: 'orfebreria', label: 'Orfebrería', cost: 36, requires: ['herreria'], needsResource: 'oro', res: { oro: 3 }, desc: 'el oro se vende al doble' },
+      { id: 'concejo', label: 'Concejo', cost: 45, requires: ['escuela'], res: { madera: 15, monedas: 20 }, desc: 'se puede levantar un ayuntamiento y elegir alcalde' },
+      { id: 'imprenta', label: 'Imprenta', cost: 55, requires: ['escuela'], res: { madera: 25, monedas: 30 }, desc: 'el saber corre un 50 % más deprisa' },
+      { id: 'hospital', label: 'Hospital', cost: 50, requires: ['medicina'], res: { piedra: 30 }, desc: 'se puede levantar un hospital contra la peste' },
+      { id: 'universidad', label: 'Universidad', cost: 80, requires: ['imprenta', 'concejo'], res: { piedra: 40, monedas: 40 }, desc: 'se puede levantar una universidad con dos sabios' },
+      { id: 'vapor', label: 'Máquina de vapor', cost: 120, requires: ['universidad', 'herreria'], res: { hierro: 30, piedra: 30 }, desc: 'se puede levantar una fábrica que convierte mineral en monedas' }
     ]
+  },
+  // Etapas históricas: se alcanzan por población, saberes y edificios; se pierden si la población se hunde.
+  eras: [
+    { id: 'aldea', label: 'Aldea', title: 'Aldea de Valdecerro', minResidents: 0, minTech: 0, needs: [], maxPopulation: 40, techMul: 1, roof: 0xC9A45B, road: 0, lamp: [0xFFB050, 1], desc: '' },
+    { id: 'villa', label: 'Villa', title: 'Villa de Valdecerro', minResidents: 22, minTech: 4, needs: ['molino|herreria'], maxPopulation: 52, techMul: 1.15, roof: 0xA8613F, road: 0.45, lamp: [0xFFB050, 1], desc: 'los tejados se cubren de teja y los caminos se afirman con piedra' },
+    { id: 'ciudad', label: 'Ciudad', title: 'Ciudad de Valdecerro', minResidents: 32, minTech: 9, needs: ['escuela', 'ayuntamiento'], maxPopulation: 64, techMul: 1.3, roof: 0x8C4A3B, road: 1, lamp: [0xFFD080, 1.3], desc: 'calles empedradas, concejo y estudios' },
+    { id: 'industrial', label: 'Ciudad industrial', title: 'Valdecerro industrial', minResidents: 44, minTech: 14, needs: ['fabrica'], maxPopulation: 78, techMul: 1.5, roof: 0x5E6470, road: 1, paving: true, lamp: [0xFFF4D0, 1.8], desc: 'la fábrica humea y las farolas alumbran como el día' }
+  ],
+  eraDecayDays: 5,
+  // Agua: lagos elípticos y arroyos como polilíneas; el terreno se excava por debajo del nivel del agua.
+  water: {
+    level: -0.55, floodRise: 0.75,
+    lakes: [
+      { key: 'lago', x: 62, z: 62, rx: 17, rz: 13, depth: 1.7 },
+      { key: 'charca', x: -72, z: 70, rx: 9, rz: 7.5, depth: 1.1 }
+    ],
+    streams: [
+      { pts: [[100, 40], [90, 46], [80, 55]], width: 2.6, depth: 0.9 },
+      { pts: [[61, 74], [58, 87], [56, 100]], width: 2.6, depth: 0.9 }
+    ]
+  },
+  fishing: { winterMul: 0.5 },
+  // Agentes exógenos: peste, sequía, riada, terremoto e intercambio cultural con las caravanas.
+  exogenous: {
+    epidemia: { chancePerDay: 0.008, winterMul: 1.5, caravanChance: 0.08, minResidents: 14, spreadRadius: 2.8, spreadPerSecond: 0.035, quarantineSpreadMul: 0.25, healthLossPerDay: 0.35, severity: [0.4, 1.1], hospitalMul: 0.5, medicineMul: 0.7, sickDays: 2.0, immuneDays: 40, initialCases: 2, endAfterClearDays: 2 },
+    // La sequía respeta el primer año: un pueblo recién nacido no tiene reservas para aguantarla.
+    sequia: { chancePerSeason: 0.25, minDays: 2, maxDays: 4, yieldMul: 0.5, acequiasMul: 1.6, moodLossPerDay: 0.03, firstYear: 2 },
+    riada: { chancePerStorm: 0.18, duration: 100, cropLoss: 0.25, woodDamage: 12, moodLoss: 0.12, minDayGap: 5 },
+    terremoto: { chancePerDay: 0.005, repair: { piedra: 18, madera: 10 }, moodLoss: 0.15, shakeSeconds: 3.5, injuries: 2, injuryHit: 0.3 },
+    intercambio: { chancePerCaravan: 0.45, weights: { saber: 3, semillas: 2, caballos: 1.5, colono: 2, costumbre: 1.5 }, seedBonus: 0.1, maxSeeds: 3, knowledgeShare: 0.4, horsePrice: 15, customs: ['la vendimia', 'la romería del lago', 'el carnaval', 'la noche de San Juan'] }
   },
   lamps: { spacing: 15, perDay: 3, max: 40, pointLights: 6, costWood: 2, costCoins: 1 },
   deposits: { count: 3, kinds: ['hierro', 'hierro', 'oro'], minDist: 50, discoverRadius: 14, targetStock: { hierro: 25, oro: 12 } },
   expedition: { duration: 75, members: 2, weight: 2.5, nearDepositChance: 0.6 },
   ruler: {
     decreeIntervalDays: 3, fiestaCost: 20, revoltBelow: 0.25, deposeDays: 3, taxHolidayDays: 2,
+    // Con ayuntamiento el señorío se vuelve concejo: alcalde elegido cada pocos días, impuestos más bajos, sin revueltas.
+    electionDays: 10, councilTaxMul: 0.7, snapElectionBelow: 0.3,
     popularity: { start: 0.6, foodGain: 0.03, hungerLoss: 0.06, deathLoss: 0.05, taxLoss: 0.012, fiestaGain: 0.12, lampGain: 0.01, buildGain: 0.03, revoltGain: 0.1 },
-    policies: ['cosecha', 'expansion', 'defensa', 'saber', 'fiesta', 'austeridad']
+    policies: ['cosecha', 'expansion', 'defensa', 'saber', 'fiesta', 'austeridad', 'cuarentena']
   },
   render: { agentCapacity: 80 },
   health: {
@@ -65,7 +103,7 @@ export const CONFIG = {
   history: { maxDays: 60 },
   followers: { parejas: 1, ninos: 1 },
   travelers: { max: 2, chancePerMinute: 0.7, stayMin: 35, stayMax: 80 },
-  animals: { gallinas: 7, cerdos: 5, wanderRadius: 6, speed: 1.1, peckMin: 1.2, peckMax: 3.2, rainRadius: 2.2 },
+  animals: { gallinas: 7, cerdos: 5, perros: 2, caballos: 2, maxPerros: 6, maxCaballos: 6, wanderRadius: 6, speed: 1.1, peckMin: 1.2, peckMax: 3.2, rainRadius: 2.2, dogScareRadius: 3.0, foalChancePerDay: 0.12, foalMinFood: 120 },
   speed: { walk: 3.4, guard: 2.9, traveler: 3.0, cart: 2.8, wander: 1.5, turnRate: 7 },
   social: { distance: 3, checkEveryFrames: 3, durMin: 1.5, durMax: 3.5, cooldownMin: 20, cooldownMax: 40, personalCooldown: 8 },
   activity: { minStay: 10, maxStay: 26, wanderRadius: 3.2, idleMin: 2, idleMax: 5 },
@@ -82,7 +120,8 @@ export const CONFIG = {
     granaryCapacity: 160,
     // Tasas por segundo referidas a un día de referenceDay segundos; se reescalan si cambia dayLengthSeconds.
     referenceDay: 240,
-    production: { grano: 0.24, madera: 0.16, mineral: 0.10, piedra: 0.10, hierro: 0.07, oro: 0.035 },
+    production: { grano: 0.24, madera: 0.16, mineral: 0.10, piedra: 0.10, hierro: 0.07, oro: 0.035, pesca: 0.2 },
+    factoryMineralPerDay: 12, factoryCoinsPerMineral: 2.5,
     stoneTripChance: 0.45,
     fieldBonus: 0.25,
     eggsPerChickenPerDay: 0.5,
@@ -115,14 +154,18 @@ export const CONFIG = {
     planInterval: 25,
     maxBuilders: 3,
     types: {
-      casa: { cost: { madera: 30, piedra: 15 }, workSeconds: 70, max: 8, label: 'una casa nueva' },
-      campo: { cost: { madera: 10 }, workSeconds: 35, max: 5, label: 'un campo de cultivo' },
-      granero: { cost: { madera: 25, piedra: 20 }, workSeconds: 55, max: 2, label: 'un granero' },
+      casa: { cost: { madera: 30, piedra: 15 }, workSeconds: 70, max: 8, perEra: 4, label: 'una casa nueva' },
+      campo: { cost: { madera: 10 }, workSeconds: 35, max: 5, perEra: 2, label: 'un campo de cultivo' },
+      granero: { cost: { madera: 25, piedra: 20 }, workSeconds: 55, max: 2, perEra: 1, label: 'un granero' },
       botica: { cost: { madera: 20, piedra: 25 }, workSeconds: 60, max: 1, label: 'una botica' },
       escuela: { cost: { madera: 30, piedra: 20 }, workSeconds: 70, max: 1, label: 'una escuela', tech: 'escuela', minResidents: 14 },
       molino: { cost: { madera: 40, piedra: 20 }, workSeconds: 85, max: 1, label: 'un molino', tech: 'molino' },
       herreria: { cost: { piedra: 30, madera: 20, hierro: 10 }, workSeconds: 75, max: 1, label: 'una herrería', tech: 'herreria' },
-      torre: { cost: { piedra: 45, madera: 15 }, workSeconds: 90, max: 1, label: 'una torre de vigía', tech: 'vigia', minResidents: 18 }
+      torre: { cost: { piedra: 45, madera: 15 }, workSeconds: 90, max: 1, label: 'una torre de vigía', tech: 'vigia', minResidents: 18 },
+      ayuntamiento: { cost: { piedra: 50, madera: 30, monedas: 20 }, workSeconds: 100, max: 1, label: 'un ayuntamiento', tech: 'concejo', minResidents: 20, era: 1 },
+      hospital: { cost: { piedra: 55, madera: 25 }, workSeconds: 100, max: 1, label: 'un hospital', tech: 'hospital', minResidents: 20, era: 1 },
+      universidad: { cost: { piedra: 70, madera: 30, monedas: 40 }, workSeconds: 120, max: 1, label: 'una universidad', tech: 'universidad', minResidents: 28, era: 2 },
+      fabrica: { cost: { piedra: 60, madera: 40, hierro: 20 }, workSeconds: 130, max: 1, label: 'una fábrica', tech: 'vapor', minResidents: 34, era: 2 }
     },
     housingTrigger: 0.75,
     foodTrigger: 45,
@@ -183,17 +226,17 @@ export const PALETTE = {
 export const ROLE_LABELS = {
   agricultor: 'Agricultores', comerciante: 'Comerciantes', minero: 'Mineros', lenador: 'Leñadores',
   aldeano: 'Aldeanos', nino: 'Niños', clerigo: 'Clérigos', guardia: 'Guardias', curandero: 'Curanderos',
-  sabio: 'Sabios', senor: 'Señorío', viajero: 'Viajeros'
+  sabio: 'Sabios', senor: 'Señorío', alcalde: 'Alcaldía', pescador: 'Pescadores', viajero: 'Viajeros'
 };
 export const ROLE_SINGULAR = {
   agricultor: 'agricultor', comerciante: 'comerciante', minero: 'minero', lenador: 'leñador',
   aldeano: 'aldeano', nino: 'niño', clerigo: 'clérigo', guardia: 'guardia', curandero: 'curandero',
-  sabio: 'sabio', senor: 'señor de Valdecerro', viajero: 'viajero'
+  sabio: 'sabio', senor: 'señor de Valdecerro', alcalde: 'alcalde', pescador: 'pescador', viajero: 'viajero'
 };
 export const ROLE_FEMININE = {
   agricultor: 'agricultora', comerciante: 'comerciante', minero: 'minera', lenador: 'leñadora',
   aldeano: 'aldeana', nino: 'niña', clerigo: 'clériga', guardia: 'guardia', curandero: 'curandera',
-  sabio: 'sabia', senor: 'señora de Valdecerro', viajero: 'viajera'
+  sabio: 'sabia', senor: 'señora de Valdecerro', alcalde: 'alcaldesa', pescador: 'pescadora', viajero: 'viajera'
 };
 export const ACTIVITY_LABELS = {
   trabajar: 'Trabajando', comer: 'Comiendo', dormir: 'Durmiendo', entregar: 'Llevando la carga al depósito',
@@ -204,7 +247,8 @@ export const ACTIVITY_LABELS = {
 export const POLICY_LABELS = {
   cosecha: 'Decreto de cosecha: todos al campo', expansion: 'Decreto de expansión: se levantan obras sin pausa',
   defensa: 'Decreto de defensa: rondas dobles de guardia', saber: 'Decreto de saber: se protege a los estudiosos',
-  fiesta: 'Decreto de fiesta: feria pagada por el castillo', austeridad: 'Decreto de austeridad: impuestos dobles'
+  fiesta: 'Decreto de fiesta: feria pagada por el castillo', austeridad: 'Decreto de austeridad: impuestos dobles',
+  cuarentena: 'Decreto de cuarentena: los contagiados guardan casa y no hay fiestas'
 };
 export const STATE_LABELS = {
   IDLE: 'parado', TRAVEL: 'de camino', WORK: 'en el sitio', SOCIALIZE: 'charlando', SEEK_SHELTER: 'buscando refugio',

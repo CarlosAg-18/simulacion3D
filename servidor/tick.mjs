@@ -18,6 +18,8 @@ const ESTADO = join(RAIZ, 'estado');
 const args = process.argv.slice(2);
 const NUEVA = args.includes('--nueva');
 const VER = args.includes('--ver');
+// --diario=ruta vuelca todos los mensajes del periodo simulado a un archivo (para estudiar el balance).
+const DIARIO = (args.find(a => a.startsWith('--diario=')) || '').slice(9);
 const TIMEOUT_MS = 15 * 60 * 1000;
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8', '.md': 'text/markdown; charset=utf-8', '.png': 'image/png', '.css': 'text/css; charset=utf-8' };
@@ -109,7 +111,7 @@ async function launchChrome() {
 // ---------------------------------------------------------------- Crónica legible y mensaje de commit
 // Lo que merece crónica: nacimientos, muertes, familias, colonos, obras, saberes, yacimientos, señorío, lobos, incendios y comercio.
 // Quedan fuera el parte del tiempo, los viajeros de paso, ferias, misas, enfermedades y el amanecer de cada día.
-const NOTABLE = /muere|^Nace |forman una familia|^Llega .* se instala|se marcha del pueblo|^Termina .*crece|^Empieza la obra|descubre|gobierna|hereda|depone|amotina|proclama|El señor cede|expedición|farol|lobo|incendio|fuego|^La caravana .*monedas|ya es adult/i;
+const NOTABLE = /muere|^Nace |forman una familia|^Llega .* se instala|se marcha del pueblo|^Termina .*crece|^Empieza la obra|descubre|gobierna|hereda|depone|amotina|proclama|El señor cede|expedición|farol|lobo|incendio|fuego|^La caravana .*monedas|ya es adult|peste|sequía|riada|Bajan las aguas|Vuelven las lluvias|Tiembla la tierra|prospera|decae|concejo|eligen|revalida|mercaderes traen|caravana trae|caravana deja|costumbre|cachorro|potro|Con la caravana llega|Falta .* para completar/i;
 function escribirCronica(r, fuente) {
   const cronica = join(ESTADO, 'cronica.md');
   if (!existsSync(cronica)) {
@@ -122,6 +124,8 @@ function escribirCronica(r, fuente) {
   partes.push(`${r.deaths} difuntos en total`, `${r.buildings} obras levantadas`, `tesoro de ${r.treasury} monedas`);
   lineas.push(`- ${partes.join(', ')}. Grano ${r.stock.grano ?? 0}, madera ${r.stock.madera ?? 0}, piedra ${r.stock.piedra ?? 0}.`);
   if (r.ruler) lineas.push(`- Gobierna ${r.ruler}${r.policy ? ` (decreto: ${r.policy})` : ''}, popularidad ${Math.round(r.popularity * 100)} %.`);
+  if (r.era) lineas.push(`- Etapa: ${r.era.toLowerCase()}${r.council ? ', gobernada por concejo' : ''}${r.customs ? `, ${r.customs} costumbre${r.customs > 1 ? 's' : ''} adoptada${r.customs > 1 ? 's' : ''}` : ''}.`);
+  if (r.alerts && r.alerts.length) lineas.push(`- Ahora mismo: ${r.alerts.join('; ')}.`);
   if (r.tech.length) lineas.push(`- Saberes: ${r.tech.join(', ')}.`);
   const paso = r.log.find(m => m.startsWith('Mientras no estabas'));
   if (paso) lineas.push(`- ${paso.replace('Mientras no estabas pasaron', 'Desde el último latido pasaron')}.`);
@@ -173,6 +177,7 @@ async function main() {
     const raw = await chrome.evaluate(`(() => { __dbg.Sim.paused = true; return JSON.stringify({ partida: __dbg.SaveSystem.build(), resumen: __dbg.resumen(), fuente: __dbg.source }); })()`);
     const { partida, resumen, fuente } = JSON.parse(raw);
     writeFileSync(join(ESTADO, 'partida.json'), JSON.stringify(partida), 'utf-8');
+    if (DIARIO) writeFileSync(DIARIO, resumen.journal.join(String.fromCharCode(10)), 'utf-8');
     const lineas = escribirCronica(resumen, fuente);
     const mensaje = `Día ${resumen.day} de Valdecerro: ${resumen.residents} habitantes, ${resumen.season.toLowerCase()} del año ${resumen.year}`;
     writeFileSync(join(ESTADO, 'ultimo-latido.txt'), mensaje + '\n', 'utf-8');

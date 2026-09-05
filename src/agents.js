@@ -14,6 +14,7 @@ import { HUD } from './hud.js';
 import { Growth } from './growth.js';
 import { Tech, Ruler } from './tech.js';
 import { spotIsClear } from './world.js';
+import { Exogenous } from './exogenos.js';
 
 export const STATE = {
   IDLE: 'IDLE', TRAVEL: 'TRAVEL', WORK: 'WORK', SOCIALIZE: 'SOCIALIZE',
@@ -24,8 +25,8 @@ const NAMES = ['Aldo', 'Beatriz', 'Clara', 'Diego', 'Elena', 'Fabián', 'Gema', 
   'Damián', 'Esther', 'Félix', 'Gonzalo', 'Irene', 'Leire', 'Mateo', 'Olalla', 'Pedro', 'Rocío', 'Sancho', 'Teresa', 'Unai'];
 const FEMALE = new Set(['Beatriz', 'Clara', 'Elena', 'Gema', 'Inés', 'Lucía', 'Nuria', 'Pilar', 'Sara', 'Úrsula', 'Ximena', 'Zoe', 'Carmen', 'Esther', 'Irene', 'Leire', 'Olalla', 'Rocío', 'Teresa']);
 const BUILDER_ROLES = new Set(['aldeano', 'agricultor', 'lenador', 'minero']);
-const WORK_HOURS = { agricultor: [0, 17], minero: [6, 15], lenador: [7, 16], comerciante: [8, 18], clerigo: [7, 20], aldeano: [8, 19], curandero: [7, 20], sabio: [8, 19], senor: [8, 19] };
-const HAT_BY_ROLE = { guardia: 'helm', clerigo: 'hat', curandero: 'hat', sabio: 'hat', viajero: 'brim', senor: 'crown' };
+const WORK_HOURS = { agricultor: [0, 17], minero: [6, 15], lenador: [7, 16], comerciante: [8, 18], clerigo: [7, 20], aldeano: [8, 19], curandero: [7, 20], sabio: [8, 19], senor: [8, 19], alcalde: [8, 19], pescador: [5, 14] };
+const HAT_BY_ROLE = { guardia: 'helm', clerigo: 'hat', curandero: 'hat', sabio: 'hat', viajero: 'brim', senor: 'crown', alcalde: 'hat', pescador: 'brim' };
 export const socialCooldown = new Map();
 let agentSerial = 1;
 const usedNames = new Set();
@@ -189,6 +190,8 @@ export class Agent extends Mover {
     this.carry = { res: null, amount: 0 };
     this.sleeping = false;
     this.sick = false;
+    // Peste: contagiado hasta una hora simulada, inmune un tiempo después; la severidad varía por persona.
+    this.infected = false; this.infectedUntil = 0; this.immuneUntil = 0; this.severity = 1;
     this.wakeOffset = rand(CONFIG.needs.wakeHour.min, CONFIG.needs.wakeHour.max) - 6;
     this.sleepOffset = rand(CONFIG.needs.sleepHour.min, CONFIG.needs.sleepHour.max) - 20;
     this.age = opts.age !== undefined ? opts.age : (role === 'nino' ? rand(3, 8) : rand(18, 48));
@@ -254,9 +257,14 @@ export class Agent extends Mover {
   resourcePlan(res, mult, rateMul) {
     const A = World.anchors, P = CONFIG.economy.production, k = rateScale() * (rateMul || 1);
     if (res === 'grano') {
-      const yieldMul = CONFIG.calendar.foodYield[DayCycle.season] * Tech.foodMul() * Ruler.foodMul();
+      const yieldMul = CONFIG.calendar.foodYield[DayCycle.season] * Tech.foodMul() * Ruler.foodMul() * Exogenous.foodMul();
       const fieldMul = 1 + CONFIG.economy.fieldBonus * Math.max(0, World.fields.length - 2);
       return { node: 'granja', anchor: A.campos[this.field % A.campos.length], res, rate: P.grano * yieldMul * fieldMul * k, mult: mult * (0.4 + yieldMul * 0.6) };
+    }
+    if (res === 'pesca') {
+      // La pesca entra como comida en el cobertizo del muelle; en invierno rinde la mitad y en riada nada.
+      const m = (Weather.isWinter ? CONFIG.fishing.winterMul : 1) * Exogenous.fishMul();
+      return { node: 'lago', anchor: A.lago, res: 'grano', rate: P.pesca * k * m, mult: mult * (0.5 + m * 0.5) };
     }
     const tools = Tech.toolMul();
     if (res === 'madera') return { node: 'bosque', anchor: A.bosque, res, rate: P.madera * k * tools, mult };
@@ -282,6 +290,14 @@ export class Agent extends Mover {
       case 'agricultor': return this.resourcePlan('grano', 1);
       case 'minero': return this.resourcePlan(this.miningTarget(), 1);
       case 'lenador': return this.resourcePlan('madera', 1);
+      case 'pescador': return this.resourcePlan('pesca', 1);
+      case 'alcalde': {
+        const h = DayCycle.hour;
+        if (h >= 12 && h < 13.5) return { node: 'plaza', anchor: null, res: null, rate: 0, mult: 1.2 };
+        return World.ayuntamiento
+          ? { node: World.ayuntamiento.travelNode, anchor: World.ayuntamiento.anchor, res: null, rate: 0, mult: 1 }
+          : { node: 'plaza', anchor: A.pozo, res: null, rate: 0, mult: 1 };
+      }
       case 'sabio': return World.escuela
         ? { node: World.escuela.travelNode, anchor: World.escuela.anchor, res: null, rate: 0, mult: 1.1 }
         : { node: 'iglesia', anchor: A.iglesia, res: null, rate: 0, mult: 0.9 };
@@ -292,9 +308,12 @@ export class Agent extends Mover {
       }
       case 'comerciante': return { node: 'mercado', anchor: this.stall ? this.stall.front : null, res: null, rate: 0, mult: Events.marketActive ? 1.6 : 1 };
       case 'clerigo': return { node: 'iglesia', anchor: A.iglesia, res: null, rate: 0, mult: 1 };
-      case 'curandero': return World.botica
-        ? { node: World.botica.travelNode, anchor: World.botica.anchor, res: null, rate: 0, mult: 1.1 }
-        : { node: 'iglesia', anchor: A.iglesia, res: null, rate: 0, mult: 0.8 };
+      case 'curandero': {
+        const clinic = World.hospital || World.botica;
+        return clinic
+          ? { node: clinic.travelNode, anchor: clinic.anchor, res: null, rate: 0, mult: 1.1 }
+          : { node: 'iglesia', anchor: A.iglesia, res: null, rate: 0, mult: 0.8 };
+      }
       case 'aldeano': {
         // Oficio secundario: el aldeano ocioso echa una mano con el recurso que más escasea.
         const s = Economy.stock, L = CONFIG.secondary.lowStock;
@@ -322,7 +341,8 @@ export class Agent extends Mover {
       // Los guardias comen en la taberna y duermen en el castillo; el resto del tiempo patrullan.
       if (n.hunger > CONFIG.needs.hungerEatAt && Economy.stock.grano >= 1) return this.choose({ act: 'comer', node: 'taberna', anchor: World.anchors.taberna, stay: rand(8, 12) });
       if (night && n.energy < 0.45) return this.choose({ act: 'dormir', node: 'castillo', stay: 99999 });
-      if (this.sick && World.botica) return this.choose({ act: 'curarse', node: World.botica.travelNode, anchor: World.botica.anchor, stay: rand(20, 30) });
+      const clinic = World.hospital || World.botica;
+      if (this.sick && clinic) return this.choose({ act: 'curarse', node: clinic.travelNode, anchor: clinic.anchor, stay: rand(20, 30) });
       this.circuitIdx = (this.circuitIdx + 1) % this.circuit.length;
       return this.choose({ act: 'patrullar', node: this.circuit[this.circuitIdx], stay: rand(4, 9) });
     }
@@ -330,12 +350,18 @@ export class Agent extends Mover {
     options.push({ act: 'dormir', node: this.home, stay: 99999, score: (night ? 1.6 : -0.9) + (1 - n.energy) * 1.7 });
     const food = Economy.stock.grano;
     if (n.hunger > CONFIG.needs.hungerEatAt) {
-      const tavern = h >= 16 && h < 23 && Economy.stock.monedas >= CONFIG.economy.tavernPrice && chance(0.5);
+      const tavern = h >= 16 && h < 23 && Economy.stock.monedas >= CONFIG.economy.tavernPrice && !this.infected && chance(0.5);
       options.push({ act: 'comer', node: tavern ? 'taberna' : this.home, anchor: tavern ? World.anchors.taberna : null, stay: rand(8, 14), score: (n.hunger - 0.3) * 2.4 - (food >= 1 ? 0 : 1.6) });
     }
     if (this.sick) {
-      const b = World.botica;
+      const b = World.hospital || World.botica;
       options.push({ act: 'curarse', node: b ? b.travelNode : this.home, anchor: b ? b.anchor : null, stay: rand(20, 32), score: (1 - n.health) * 2.6 + 0.4 });
+    }
+    // Cuarentena: el contagiado guarda casa aunque aún se tenga en pie.
+    // Cuarentena: el contagiado guarda casa, pero sale a comer cuando tiene hambre y hay comida.
+    if (this.infected && Ruler.policy === 'cuarentena') {
+      const hungry = n.hunger > CONFIG.needs.hungerEatAt && food >= 1;
+      options.push({ act: 'curarse', node: this.home, stay: rand(30, 50), score: hungry ? 0 : 3.2 });
     }
     if (this.carry.amount >= CONFIG.economy.carryAmount || (this.carry.amount > 0.5 && !this.inWorkHours())) {
       const depot = this.depotFor(this.carry.res);
@@ -363,13 +389,13 @@ export class Agent extends Mover {
   }
   // El grano se guarda en la granja, el mineral y la piedra en el almacén, la madera en el más cercano.
   depotFor(res) {
-    if (res === 'grano') return 'granja';
+    if (res === 'grano') return this.role === 'pescador' ? 'lago' : 'granja';
     if (res === 'mineral' || res === 'piedra') return 'almacen';
     return Graph.routeDist(this.node, 'granja') < Graph.routeDist(this.node, 'almacen') ? 'granja' : 'almacen';
   }
   choose(o) {
     this.activity = o.act;
-    if (o.act === 'trabajar' && this.role === 'senor') this.activity = 'gobernar';
+    if (o.act === 'trabajar' && (this.role === 'senor' || this.role === 'alcalde')) this.activity = 'gobernar';
     if (o.act === 'trabajar' && this.role === 'sabio') this.activity = 'estudiar';
     this.workRes = o.plan ? o.plan.res : null;
     this.workRate = o.plan ? o.plan.rate : 0;
@@ -521,6 +547,7 @@ export class Agent extends Mover {
   }
   remove() {
     this.removed = true;
+    usedNames.delete(this.name);
     AgentRenderer.release(this.slot);
     this.slot = -1;
     for (const a of agents) if (a.follow === this) a.follow = null;
@@ -586,6 +613,12 @@ export class Agent extends Mover {
       if (Weather.isWet) loss += H.rainLossPerDay;
     }
     if (n.hunger > 0.9) loss += H.hungerLossPerDay;
+    if (this.infected) {
+      if (Sim.time >= this.infectedUntil) {
+        this.infected = false;
+        this.immuneUntil = Sim.time + CONFIG.exogenous.epidemia.immuneDays * CONFIG.dayLengthSeconds;
+      } else loss += CONFIG.exogenous.epidemia.healthLossPerDay * this.severity * Exogenous.illnessMul();
+    }
     if (loss > 0) n.health -= loss * perSec;
     else {
       let gain = this.sleeping ? H.sleepRecoverPerDay : H.recoverPerDay;
@@ -597,7 +630,7 @@ export class Agent extends Mover {
     if (this.sick && !wasSick && this.isResident) HUD.log(`${this.label} cae ${this.isFemale ? 'enferma' : 'enfermo'}`);
     if (!this.sick && wasSick && this.isResident) HUD.log(`${this.name} se recupera`);
     this.speed = this.baseSpeed * (this.sick ? H.sickSpeed : 1);
-    if (n.health <= H.deathBelow) { this.die('de enfermedad'); return; }
+    if (n.health <= H.deathBelow) { this.die(this.infected ? 'de la peste' : 'de enfermedad'); return; }
     if (n.hunger >= 1) this.starving += dt; else this.starving = Math.max(0, this.starving - dt * 2);
     const day = CONFIG.dayLengthSeconds, M = CONFIG.mortality;
     if (this.starving > M.starveDaysDeath * day) { this.die('de hambre'); return; }
@@ -630,7 +663,9 @@ export class Agent extends Mover {
     } else if (this.activity === 'curarse') {
       // En casa guarda cama hasta recobrar fuerzas; en la botica espera al curandero.
       if (this.sleeping) {
-        if (this.needs.health >= CONFIG.health.restUntil || (this.needs.hunger > 1.05 && Economy.stock.grano > 0)) this.wake();
+        // El contagiado en cuarentena sigue en casa aunque se sienta bien; solo el hambre lo saca.
+        const cured = this.needs.health >= CONFIG.health.restUntil && !(this.infected && Ruler.policy === 'cuarentena');
+        if (cured || (this.needs.hunger > (this.infected ? 0.8 : 1.05) && Economy.stock.grano > 0)) this.wake();
       } else if (!this.sick) this.timer = 0;
     } else if (this.activity === 'dormir') {
       if (this.sleeping) {
@@ -737,7 +772,10 @@ export class Agent extends Mover {
     this.timer = 0;
     this.activity = 'idle';
   }
-  becomeRuler() { this.setRole('senor', 'castillo'); }
+  becomeRuler() {
+    const role = Ruler.rulerRole();
+    this.setRole(role, role === 'senor' ? 'castillo' : (this.home === 'castillo' ? Growth.assignHome() : this.home));
+  }
   becomeCommoner() { this.setRole('aldeano', Growth.assignHome()); }
   // Un niño que crece toma el rol que más necesita el pueblo y deja de seguir a sus padres.
   growUp() {
@@ -756,6 +794,7 @@ export class Agent extends Mover {
     if (parent) this.node = parent.node;
     if (role === 'comerciante') this.stall = World.stalls[agents.filter(a => a.role === 'comerciante').length % World.stalls.length];
     if (role === 'agricultor') this.field = agents.filter(a => a.role === 'agricultor').length;
+    if (role === 'guardia') { this.circuit = GUARD_CIRCUIT; this.circuitIdx = 0; this.home = 'castillo'; }
     HUD.log(`${this.name} ya es ${this.isFemale ? 'adulta' : 'adulto'} y se hace ${this.roleWord}`);
   }
   serialize() {
@@ -765,7 +804,8 @@ export class Agent extends Mover {
       childDays: this.childDays, partnerId: this.partnerId, followId: this.follow ? this.follow.id : null,
       followSide: this.followSide, field: this.field, stall: this.stall ? World.stalls.indexOf(this.stall) : -1,
       circuitIdx: this.circuitIdx, exitNode: this.exitNode, plan: this.plan, sleeping: this.sleeping,
-      wakeOffset: this.wakeOffset, sleepOffset: this.sleepOffset
+      wakeOffset: this.wakeOffset, sleepOffset: this.sleepOffset,
+      infected: this.infected, infectedUntil: this.infectedUntil, immuneUntil: this.immuneUntil, severity: this.severity
     };
   }
 }
@@ -829,6 +869,7 @@ export function spawnPopulation() {
   for (let i = 0; i < cfg.comerciante; i++) new Agent('comerciante', homes[(i + 1) % 4], { stall: World.stalls[i % World.stalls.length] });
   for (let i = 0; i < cfg.minero; i++) new Agent('minero', homes[(i + 2) % 4]);
   for (let i = 0; i < cfg.lenador; i++) new Agent('lenador', homes[(i + 3) % 4]);
+  for (let i = 0; i < (cfg.pescador || 0); i++) new Agent('pescador', homes[i % 4]);
   const villagers = [];
   for (let i = 0; i < cfg.aldeano; i++) villagers.push(new Agent('aldeano', homes[i % 4]));
   for (let i = 0; i < CONFIG.followers.parejas && i * 2 + 1 < villagers.length; i++) {
@@ -868,6 +909,7 @@ export function restorePopulation(list) {
     a.exitNode = d.exitNode;
     a.plan = d.plan;
     a.wakeOffset = d.wakeOffset; a.sleepOffset = d.sleepOffset;
+    a.infected = !!d.infected; a.infectedUntil = d.infectedUntil || 0; a.immuneUntil = d.immuneUntil || 0; a.severity = d.severity || 1;
     a.timer = rand(0.5, 3);
     byId.set(a.id, a);
     if (d.role === 'viajero' && (!a.exitNode || !a.plan)) a.remove();

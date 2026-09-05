@@ -2,7 +2,7 @@ import { CONFIG } from './config.js';
 import { World } from './state.js';
 
 export const RESOURCES = ['grano', 'madera', 'piedra', 'mineral', 'monedas', 'hierro', 'oro'];
-export const RESOURCE_LABELS = { grano: 'Grano', madera: 'Madera', piedra: 'Piedra', mineral: 'Mineral', monedas: 'Monedas', hierro: 'Hierro', oro: 'Oro' };
+export const RESOURCE_LABELS = { grano: 'Comida', madera: 'Madera', piedra: 'Piedra', mineral: 'Mineral', monedas: 'Monedas', hierro: 'Hierro', oro: 'Oro' };
 
 // Economía global: un único almacén con capacidad, historial reciente y helpers de gasto.
 export const Economy = {

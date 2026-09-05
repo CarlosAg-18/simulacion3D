@@ -81,6 +81,13 @@
   .hud-weather-name { font-size: 15px; font-weight: 600; color: var(--brass); }
   .hud-weather-sub { font-size: 12px; color: var(--ink-soft); }
   .hud-section { font-size: 12px; font-weight: 600; color: var(--ink-soft); margin: 7px 0 2px; }
+  .hud-alerts { margin: 4px 0 2px; padding: 5px 10px; border-left: 3px solid #D06A5A; background: rgba(208, 106, 90, 0.14); border-radius: var(--radius); font-size: 12.5px; color: #F2B4A4; }
+  .hud-alerts div + div { margin-top: 2px; }
+  .hud-fold { margin-top: 6px; }
+  .hud-fold summary { font-size: 12px; font-weight: 600; color: var(--ink-soft); cursor: pointer; list-style: none; display: flex; align-items: center; gap: 6px; margin: 0 0 2px; user-select: none; }
+  .hud-fold summary::-webkit-details-marker { display: none; }
+  .hud-fold summary::before { content: ''; width: 0; height: 0; border-left: 5px solid var(--brass); border-top: 4px solid transparent; border-bottom: 4px solid transparent; transition: transform 0.15s ease; }
+  .hud-fold[open] summary::before { transform: rotate(90deg); }
   .hud-grid {
     display: grid;
     grid-template-columns: 1fr auto;
@@ -195,13 +202,12 @@
 <div id="loading">Levantando el pueblo...</div>
 <button id="hud-toggle" type="button" aria-controls="hud" aria-expanded="true">Ocultar panel</button>
 <div id="hud" class="panel" aria-live="polite">
-  <h1>Pueblo de Valdecerro</h1>
+  <h1 id="hud-title">Aldea de Valdecerro</h1>
   <div class="hud-clock">
     <span class="hud-time" id="hud-time">06:30</span>
     <span class="hud-day" id="hud-day">Día 1</span>
   </div>
-  <div class="hud-phase" id="hud-phase">Amanecer</div>
-  <div class="hud-season" id="hud-season">Primavera, día 1 de 4, año 1</div>
+  <div class="hud-season" id="hud-season">Amanecer · Primavera, día 1 de 4, año 1</div>
   <div class="hud-weather">
     <span id="hud-weather-icon"></span>
     <span>
@@ -209,20 +215,25 @@
       <div class="hud-weather-sub" id="hud-weather-sub">Cielo despejado</div>
     </span>
   </div>
-  <div class="hud-section">Habitantes</div>
-  <div class="hud-grid cols2" id="hud-stats"></div>
-  <div class="hud-section">Almacén</div>
-  <div class="hud-grid cols2" id="hud-resources"></div>
+  <div class="hud-alerts" id="hud-alerts" hidden></div>
   <div class="hud-section">Pueblo</div>
-  <div class="hud-grid" id="hud-town"></div>
-  <div class="hud-section">Saber</div>
-  <div class="hud-grid" id="hud-tech"></div>
+  <div class="hud-grid cols2" id="hud-town"></div>
+  <div class="hud-section">Progreso y gobierno</div>
+  <div class="hud-grid" id="hud-progress"></div>
   <div class="bar-track hud-tech-track"><span class="bar-fill" id="hud-tech-bar" style="width:0%;background:#7FA7D6"></span></div>
-  <div class="hud-section">Señorío</div>
-  <div class="hud-grid" id="hud-ruler"></div>
-  <div class="hud-section">Historial</div>
-  <svg id="hud-chart" viewBox="0 0 240 56" preserveAspectRatio="none" aria-hidden="true"></svg>
-  <div class="hud-chart-legend" id="hud-chart-legend"></div>
+  <details class="hud-fold" open>
+    <summary>Almacén</summary>
+    <div class="hud-grid cols2" id="hud-resources"></div>
+  </details>
+  <details class="hud-fold">
+    <summary>Oficios y animales</summary>
+    <div class="hud-grid cols2" id="hud-stats"></div>
+  </details>
+  <details class="hud-fold">
+    <summary>Historial</summary>
+    <svg id="hud-chart" viewBox="0 0 240 56" preserveAspectRatio="none" aria-hidden="true"></svg>
+    <div class="hud-chart-legend" id="hud-chart-legend"></div>
+  </details>
   <div class="hud-log" id="hud-log"></div>
   <div class="hud-controls">
     <button id="btn-pause" type="button">Pausar</button>
@@ -272,7 +283,7 @@ const CONFIG = {
     grassTint: { Primavera: 0x8FCF7A, Verano: 0xFFFFFF, Otoño: 0xF0C08A, Invierno: 0xC9D2DC },
     leafTint: { Primavera: 0xB8F0A8, Verano: 0xFFFFFF, Otoño: 0xF0A050, Invierno: 0xA8B4C4 }
   },
-  agents: { agricultor: 4, comerciante: 2, minero: 3, lenador: 2, aldeano: 5, clerigo: 1, guardia: 2 },
+  agents: { agricultor: 4, comerciante: 2, minero: 3, lenador: 2, aldeano: 5, clerigo: 1, guardia: 2, pescador: 1 },
   // Saberes: el pueblo acumula conocimiento y desbloquea avances en este orden de prioridad.
   tech: {
     pointsPerDayBase: 0.5, pointsPerClerigo: 0.5, pointsPerSabio: 1.6, schoolMul: 2.0, policyMul: 1.6,
@@ -281,20 +292,58 @@ const CONFIG = {
       { id: 'cartografia', label: 'Cartografía', cost: 10, requires: [], desc: 'salen expediciones a explorar el valle' },
       { id: 'alumbrado', label: 'Alumbrado de aceite', cost: 12, requires: [], desc: 'se instalan faroles por los caminos' },
       { id: 'medicina', label: 'Medicina de hierbas', cost: 14, requires: [], desc: 'los enfermos sanan antes' },
-      { id: 'escuela', label: 'Escuela', cost: 18, requires: [], desc: 'se puede levantar una escuela con su sabio' },
-      { id: 'molino', label: 'Molino de viento', cost: 16, requires: ['arado'], desc: 'se puede levantar un molino' },
-      { id: 'vigia', label: 'Torre de vigía', cost: 20, requires: [], desc: 'se puede levantar una torre para los guardias' },
-      { id: 'herreria', label: 'Herrería', cost: 22, requires: ['cartografia'], needsResource: 'hierro', desc: 'herramientas de hierro para todos los oficios' },
-      { id: 'orfebreria', label: 'Orfebrería', cost: 26, requires: ['herreria'], needsResource: 'oro', desc: 'el oro se vende al doble' }
+      { id: 'escuela', label: 'Escuela', cost: 24, requires: [], desc: 'se puede levantar una escuela con su sabio' },
+      { id: 'molino', label: 'Molino de viento', cost: 22, requires: ['arado'], desc: 'se puede levantar un molino' },
+      { id: 'vigia', label: 'Torre de vigía', cost: 28, requires: [], desc: 'se puede levantar una torre para los guardias' },
+      { id: 'herreria', label: 'Herrería', cost: 32, requires: ['cartografia'], needsResource: 'hierro', res: { hierro: 4 }, desc: 'herramientas de hierro para todos los oficios' },
+      { id: 'acequias', label: 'Acequias', cost: 32, requires: ['arado'], res: { madera: 20 }, desc: 'los campos aguantan las sequías y rinden un 10 % más' },
+      { id: 'orfebreria', label: 'Orfebrería', cost: 36, requires: ['herreria'], needsResource: 'oro', res: { oro: 3 }, desc: 'el oro se vende al doble' },
+      { id: 'concejo', label: 'Concejo', cost: 45, requires: ['escuela'], res: { madera: 15, monedas: 20 }, desc: 'se puede levantar un ayuntamiento y elegir alcalde' },
+      { id: 'imprenta', label: 'Imprenta', cost: 55, requires: ['escuela'], res: { madera: 25, monedas: 30 }, desc: 'el saber corre un 50 % más deprisa' },
+      { id: 'hospital', label: 'Hospital', cost: 50, requires: ['medicina'], res: { piedra: 30 }, desc: 'se puede levantar un hospital contra la peste' },
+      { id: 'universidad', label: 'Universidad', cost: 80, requires: ['imprenta', 'concejo'], res: { piedra: 40, monedas: 40 }, desc: 'se puede levantar una universidad con dos sabios' },
+      { id: 'vapor', label: 'Máquina de vapor', cost: 120, requires: ['universidad', 'herreria'], res: { hierro: 30, piedra: 30 }, desc: 'se puede levantar una fábrica que convierte mineral en monedas' }
     ]
+  },
+  // Etapas históricas: se alcanzan por población, saberes y edificios; se pierden si la población se hunde.
+  eras: [
+    { id: 'aldea', label: 'Aldea', title: 'Aldea de Valdecerro', minResidents: 0, minTech: 0, needs: [], maxPopulation: 40, techMul: 1, roof: 0xC9A45B, road: 0, lamp: [0xFFB050, 1], desc: '' },
+    { id: 'villa', label: 'Villa', title: 'Villa de Valdecerro', minResidents: 22, minTech: 4, needs: ['molino|herreria'], maxPopulation: 52, techMul: 1.15, roof: 0xA8613F, road: 0.45, lamp: [0xFFB050, 1], desc: 'los tejados se cubren de teja y los caminos se afirman con piedra' },
+    { id: 'ciudad', label: 'Ciudad', title: 'Ciudad de Valdecerro', minResidents: 32, minTech: 9, needs: ['escuela', 'ayuntamiento'], maxPopulation: 64, techMul: 1.3, roof: 0x8C4A3B, road: 1, lamp: [0xFFD080, 1.3], desc: 'calles empedradas, concejo y estudios' },
+    { id: 'industrial', label: 'Ciudad industrial', title: 'Valdecerro industrial', minResidents: 44, minTech: 14, needs: ['fabrica'], maxPopulation: 78, techMul: 1.5, roof: 0x5E6470, road: 1, paving: true, lamp: [0xFFF4D0, 1.8], desc: 'la fábrica humea y las farolas alumbran como el día' }
+  ],
+  eraDecayDays: 5,
+  // Agua: lagos elípticos y arroyos como polilíneas; el terreno se excava por debajo del nivel del agua.
+  water: {
+    level: -0.55, floodRise: 0.75,
+    lakes: [
+      { key: 'lago', x: 62, z: 62, rx: 17, rz: 13, depth: 1.7 },
+      { key: 'charca', x: -72, z: 70, rx: 9, rz: 7.5, depth: 1.1 }
+    ],
+    streams: [
+      { pts: [[100, 40], [90, 46], [80, 55]], width: 2.6, depth: 0.9 },
+      { pts: [[61, 74], [58, 87], [56, 100]], width: 2.6, depth: 0.9 }
+    ]
+  },
+  fishing: { winterMul: 0.5 },
+  // Agentes exógenos: peste, sequía, riada, terremoto e intercambio cultural con las caravanas.
+  exogenous: {
+    epidemia: { chancePerDay: 0.008, winterMul: 1.5, caravanChance: 0.08, minResidents: 14, spreadRadius: 2.8, spreadPerSecond: 0.035, quarantineSpreadMul: 0.25, healthLossPerDay: 0.35, severity: [0.4, 1.1], hospitalMul: 0.5, medicineMul: 0.7, sickDays: 2.0, immuneDays: 40, initialCases: 2, endAfterClearDays: 2 },
+    // La sequía respeta el primer año: un pueblo recién nacido no tiene reservas para aguantarla.
+    sequia: { chancePerSeason: 0.25, minDays: 2, maxDays: 4, yieldMul: 0.5, acequiasMul: 1.6, moodLossPerDay: 0.03, firstYear: 2 },
+    riada: { chancePerStorm: 0.18, duration: 100, cropLoss: 0.25, woodDamage: 12, moodLoss: 0.12, minDayGap: 5 },
+    terremoto: { chancePerDay: 0.005, repair: { piedra: 18, madera: 10 }, moodLoss: 0.15, shakeSeconds: 3.5, injuries: 2, injuryHit: 0.3 },
+    intercambio: { chancePerCaravan: 0.45, weights: { saber: 3, semillas: 2, caballos: 1.5, colono: 2, costumbre: 1.5 }, seedBonus: 0.1, maxSeeds: 3, knowledgeShare: 0.4, horsePrice: 15, customs: ['la vendimia', 'la romería del lago', 'el carnaval', 'la noche de San Juan'] }
   },
   lamps: { spacing: 15, perDay: 3, max: 40, pointLights: 6, costWood: 2, costCoins: 1 },
   deposits: { count: 3, kinds: ['hierro', 'hierro', 'oro'], minDist: 50, discoverRadius: 14, targetStock: { hierro: 25, oro: 12 } },
   expedition: { duration: 75, members: 2, weight: 2.5, nearDepositChance: 0.6 },
   ruler: {
     decreeIntervalDays: 3, fiestaCost: 20, revoltBelow: 0.25, deposeDays: 3, taxHolidayDays: 2,
+    // Con ayuntamiento el señorío se vuelve concejo: alcalde elegido cada pocos días, impuestos más bajos, sin revueltas.
+    electionDays: 10, councilTaxMul: 0.7, snapElectionBelow: 0.3,
     popularity: { start: 0.6, foodGain: 0.03, hungerLoss: 0.06, deathLoss: 0.05, taxLoss: 0.012, fiestaGain: 0.12, lampGain: 0.01, buildGain: 0.03, revoltGain: 0.1 },
-    policies: ['cosecha', 'expansion', 'defensa', 'saber', 'fiesta', 'austeridad']
+    policies: ['cosecha', 'expansion', 'defensa', 'saber', 'fiesta', 'austeridad', 'cuarentena']
   },
   render: { agentCapacity: 80 },
   health: {
@@ -317,7 +366,7 @@ const CONFIG = {
   history: { maxDays: 60 },
   followers: { parejas: 1, ninos: 1 },
   travelers: { max: 2, chancePerMinute: 0.7, stayMin: 35, stayMax: 80 },
-  animals: { gallinas: 7, cerdos: 5, wanderRadius: 6, speed: 1.1, peckMin: 1.2, peckMax: 3.2, rainRadius: 2.2 },
+  animals: { gallinas: 7, cerdos: 5, perros: 2, caballos: 2, maxPerros: 6, maxCaballos: 6, wanderRadius: 6, speed: 1.1, peckMin: 1.2, peckMax: 3.2, rainRadius: 2.2, dogScareRadius: 3.0, foalChancePerDay: 0.12, foalMinFood: 120 },
   speed: { walk: 3.4, guard: 2.9, traveler: 3.0, cart: 2.8, wander: 1.5, turnRate: 7 },
   social: { distance: 3, checkEveryFrames: 3, durMin: 1.5, durMax: 3.5, cooldownMin: 20, cooldownMax: 40, personalCooldown: 8 },
   activity: { minStay: 10, maxStay: 26, wanderRadius: 3.2, idleMin: 2, idleMax: 5 },
@@ -334,7 +383,8 @@ const CONFIG = {
     granaryCapacity: 160,
     // Tasas por segundo referidas a un día de referenceDay segundos; se reescalan si cambia dayLengthSeconds.
     referenceDay: 240,
-    production: { grano: 0.24, madera: 0.16, mineral: 0.10, piedra: 0.10, hierro: 0.07, oro: 0.035 },
+    production: { grano: 0.24, madera: 0.16, mineral: 0.10, piedra: 0.10, hierro: 0.07, oro: 0.035, pesca: 0.2 },
+    factoryMineralPerDay: 12, factoryCoinsPerMineral: 2.5,
     stoneTripChance: 0.45,
     fieldBonus: 0.25,
     eggsPerChickenPerDay: 0.5,
@@ -367,14 +417,18 @@ const CONFIG = {
     planInterval: 25,
     maxBuilders: 3,
     types: {
-      casa: { cost: { madera: 30, piedra: 15 }, workSeconds: 70, max: 8, label: 'una casa nueva' },
-      campo: { cost: { madera: 10 }, workSeconds: 35, max: 5, label: 'un campo de cultivo' },
-      granero: { cost: { madera: 25, piedra: 20 }, workSeconds: 55, max: 2, label: 'un granero' },
+      casa: { cost: { madera: 30, piedra: 15 }, workSeconds: 70, max: 8, perEra: 4, label: 'una casa nueva' },
+      campo: { cost: { madera: 10 }, workSeconds: 35, max: 5, perEra: 2, label: 'un campo de cultivo' },
+      granero: { cost: { madera: 25, piedra: 20 }, workSeconds: 55, max: 2, perEra: 1, label: 'un granero' },
       botica: { cost: { madera: 20, piedra: 25 }, workSeconds: 60, max: 1, label: 'una botica' },
       escuela: { cost: { madera: 30, piedra: 20 }, workSeconds: 70, max: 1, label: 'una escuela', tech: 'escuela', minResidents: 14 },
       molino: { cost: { madera: 40, piedra: 20 }, workSeconds: 85, max: 1, label: 'un molino', tech: 'molino' },
       herreria: { cost: { piedra: 30, madera: 20, hierro: 10 }, workSeconds: 75, max: 1, label: 'una herrería', tech: 'herreria' },
-      torre: { cost: { piedra: 45, madera: 15 }, workSeconds: 90, max: 1, label: 'una torre de vigía', tech: 'vigia', minResidents: 18 }
+      torre: { cost: { piedra: 45, madera: 15 }, workSeconds: 90, max: 1, label: 'una torre de vigía', tech: 'vigia', minResidents: 18 },
+      ayuntamiento: { cost: { piedra: 50, madera: 30, monedas: 20 }, workSeconds: 100, max: 1, label: 'un ayuntamiento', tech: 'concejo', minResidents: 20, era: 1 },
+      hospital: { cost: { piedra: 55, madera: 25 }, workSeconds: 100, max: 1, label: 'un hospital', tech: 'hospital', minResidents: 20, era: 1 },
+      universidad: { cost: { piedra: 70, madera: 30, monedas: 40 }, workSeconds: 120, max: 1, label: 'una universidad', tech: 'universidad', minResidents: 28, era: 2 },
+      fabrica: { cost: { piedra: 60, madera: 40, hierro: 20 }, workSeconds: 130, max: 1, label: 'una fábrica', tech: 'vapor', minResidents: 34, era: 2 }
     },
     housingTrigger: 0.75,
     foodTrigger: 45,
@@ -435,17 +489,17 @@ const PALETTE = {
 const ROLE_LABELS = {
   agricultor: 'Agricultores', comerciante: 'Comerciantes', minero: 'Mineros', lenador: 'Leñadores',
   aldeano: 'Aldeanos', nino: 'Niños', clerigo: 'Clérigos', guardia: 'Guardias', curandero: 'Curanderos',
-  sabio: 'Sabios', senor: 'Señorío', viajero: 'Viajeros'
+  sabio: 'Sabios', senor: 'Señorío', alcalde: 'Alcaldía', pescador: 'Pescadores', viajero: 'Viajeros'
 };
 const ROLE_SINGULAR = {
   agricultor: 'agricultor', comerciante: 'comerciante', minero: 'minero', lenador: 'leñador',
   aldeano: 'aldeano', nino: 'niño', clerigo: 'clérigo', guardia: 'guardia', curandero: 'curandero',
-  sabio: 'sabio', senor: 'señor de Valdecerro', viajero: 'viajero'
+  sabio: 'sabio', senor: 'señor de Valdecerro', alcalde: 'alcalde', pescador: 'pescador', viajero: 'viajero'
 };
 const ROLE_FEMININE = {
   agricultor: 'agricultora', comerciante: 'comerciante', minero: 'minera', lenador: 'leñadora',
   aldeano: 'aldeana', nino: 'niña', clerigo: 'clériga', guardia: 'guardia', curandero: 'curandera',
-  sabio: 'sabia', senor: 'señora de Valdecerro', viajero: 'viajera'
+  sabio: 'sabia', senor: 'señora de Valdecerro', alcalde: 'alcaldesa', pescador: 'pescadora', viajero: 'viajera'
 };
 const ACTIVITY_LABELS = {
   trabajar: 'Trabajando', comer: 'Comiendo', dormir: 'Durmiendo', entregar: 'Llevando la carga al depósito',
@@ -456,7 +510,8 @@ const ACTIVITY_LABELS = {
 const POLICY_LABELS = {
   cosecha: 'Decreto de cosecha: todos al campo', expansion: 'Decreto de expansión: se levantan obras sin pausa',
   defensa: 'Decreto de defensa: rondas dobles de guardia', saber: 'Decreto de saber: se protege a los estudiosos',
-  fiesta: 'Decreto de fiesta: feria pagada por el castillo', austeridad: 'Decreto de austeridad: impuestos dobles'
+  fiesta: 'Decreto de fiesta: feria pagada por el castillo', austeridad: 'Decreto de austeridad: impuestos dobles',
+  cuarentena: 'Decreto de cuarentena: los contagiados guardan casa y no hay fiestas'
 };
 const STATE_LABELS = {
   IDLE: 'parado', TRAVEL: 'de camino', WORK: 'en el sitio', SOCIALIZE: 'charlando', SEEK_SHELTER: 'buscando refugio',
@@ -535,6 +590,7 @@ const World = {
   fields: [], homes: [], stallSpots: [], granaries: 0,
   trees: null, treeList: [], constructions: [], siteGroup: null,
   cemetery: null, graves: [], botica: null, escuela: null, flame: null,
+  hospital: null, universidad: null, ayuntamiento: null, fabrica: null, bridges: [],
   deposits: [], dynamics: []
 };
 const Render = {
@@ -633,8 +689,58 @@ const RoadField = {
 };
 const _near = { d: 0, p: null };
 
+// Cuerpos de agua: lagos elípticos y arroyos como polilíneas muestreadas. No usan el RNG.
+const Water = { level: CONFIG.water.level, lakes: [], streams: [], mesh: null, rise: 0, riseTarget: 0 };
+function initWater() {
+  Water.lakes = CONFIG.water.lakes.map(l => Object.assign({}, l));
+  Water.streams = CONFIG.water.streams.map(s => {
+    const curve = new THREE.CatmullRomCurve3(s.pts.map(([x, z]) => new THREE.Vector3(x, 0, z)), false, 'centripetal');
+    const pts = curve.getSpacedPoints(Math.max(4, Math.ceil(curve.getLength() / 2)));
+    return { pts: pts.map(p => ({ x: p.x, z: p.z })), width: s.width, depth: s.depth };
+  });
+}
+// Peso de excavación (0 fuera, 1 dentro, suave en la orilla) y fondo objetivo del cuerpo de agua más cercano.
+const _carve = { k: 0, bottom: 0 };
+function waterCarve(x, z, out) {
+  out.k = 0; out.bottom = 0;
+  for (let i = 0; i < Water.lakes.length; i++) {
+    const l = Water.lakes[i];
+    const dn = Math.hypot((x - l.x) / l.rx, (z - l.z) / l.rz);
+    if (dn >= 1.4) continue;
+    const w = 1 - smoothstep(0.85, 1.4, dn);
+    if (w > out.k) { out.k = w; out.bottom = Water.level - l.depth; }
+  }
+  for (let i = 0; i < Water.streams.length; i++) {
+    const s = Water.streams[i];
+    let best = Infinity;
+    for (let j = 0; j < s.pts.length; j++) {
+      const p = s.pts[j];
+      const d = (p.x - x) * (p.x - x) + (p.z - z) * (p.z - z);
+      if (d < best) best = d;
+    }
+    const w = 1 - smoothstep(s.width * 0.5, s.width * 0.5 + 3.0, Math.sqrt(best));
+    if (w > out.k) { out.k = w; out.bottom = Water.level - s.depth; }
+  }
+  return out;
+}
+function isWater(x, z) { return waterCarve(x, z, _carve).k > 0.35; }
+// Distancia de un punto al eje de un arroyo (para puentes y para saber si una obra cae sobre el agua).
+function streamDistance(x, z) {
+  let best = Infinity;
+  for (const s of Water.streams) for (const p of s.pts) best = Math.min(best, Math.hypot(p.x - x, p.z - z));
+  return best;
+}
+
 const grass = hex(PALETTE.grass), grassD = hex(PALETTE.grassDark), grassL = hex(PALETTE.grassLight);
-const dirt = hex(PALETTE.dirt), dirtD = hex(PALETTE.dirtDark);
+const DIRT = hex(PALETTE.dirt), DIRT_D = hex(PALETTE.dirtDark), COBBLE = hex(0x9C9A94), COBBLE_D = hex(0x74726C), PAVING = hex(0x6A6866), PAVING_D = hex(0x504E4C);
+const SAND = hex(0xC8B78A), MUD = hex(0x4E5A48);
+// Los caminos cambian de aspecto con la etapa histórica: tierra, empedrado, adoquín.
+const dirt = DIRT.clone(), dirtD = DIRT_D.clone();
+function setRoadStyle(mix, paving) {
+  dirt.lerpColors(DIRT, paving ? PAVING : COBBLE, mix);
+  dirtD.lerpColors(DIRT_D, paving ? PAVING_D : COBBLE_D, mix);
+  if (Terrain.mesh) rebuildTerrain();
+}
 // Rellena alturas y colores de la rejilla a partir del ruido, las huellas y los caminos actuales.
 function computeTerrain(pos, colors) {
   const n = Terrain.segs, w = n + 1, half = Terrain.half, step = Terrain.step;
@@ -649,6 +755,8 @@ function computeTerrain(pos, colors) {
         const d = Math.hypot(x - fp.x, z - fp.z);
         if (d < fp.r + fp.blend) h = lerp(fp.h, h, smoothstep(fp.r, fp.r + fp.blend, d));
       }
+      waterCarve(x, z, _carve);
+      if (_carve.k > 0) h = lerp(h, _carve.bottom, _carve.k);
       RoadField.nearest(x, z, _near);
       let roadMix = 0;
       if (_near.p) {
@@ -663,6 +771,11 @@ function computeTerrain(pos, colors) {
       const dn = valueNoise(x * 0.35, z * 0.35);
       _c2.lerpColors(dirt, dirtD, dn);
       _c1.lerp(_c2, roadMix);
+      // Orilla de arena y fondo de limo bajo el agua.
+      if (h < Water.level + 0.5) {
+        _c1.lerp(SAND, smoothstep(Water.level + 0.5, Water.level - 0.3, h) * (1 - roadMix * 0.7));
+        _c1.lerp(MUD, smoothstep(Water.level - 0.2, Water.level - 1.0, h));
+      }
       colors.setXYZ(i, _c1.r, _c1.g, _c1.b);
     }
   }
@@ -706,6 +819,7 @@ const NODE_DEFS = [
   { id: 'granja', x: -48, z: 42, area: 4 },
   { id: 'almacen', x: 38, z: -23, area: 3 },
   { id: 'bosque', x: -60, z: -40, area: 3 },
+  { id: 'lago', x: 44, z: 50, area: 3 },
   { id: 'norte', x: -6, z: -97, area: 0, edge: true, label: 'del norte' },
   { id: 'sur', x: 12, z: 97, area: 0, edge: true, label: 'del sur' },
   { id: 'este', x: 97, z: 9, area: 0, edge: true, label: 'del este' },
@@ -717,7 +831,7 @@ const EDGE_DEFS = [
   ['mercado', 'almacen'], ['almacen', 'mina'], ['mina', 'este'], ['castillo', 'norte'],
   ['taberna', 'granja'], ['granja', 'oeste'], ['casa1', 'sur'], ['casa2', 'taberna'],
   ['casa3', 'granja'], ['casa4', 'este'], ['iglesia', 'castillo'], ['casa1', 'mercado'],
-  ['casa3', 'bosque'], ['iglesia', 'bosque']
+  ['casa3', 'bosque'], ['iglesia', 'bosque'], ['casa1', 'lago']
 ];
 const BORDER_NODES = NODE_DEFS.filter(n => n.edge).map(n => n.id);
 
@@ -902,13 +1016,19 @@ function initAssets() {
   Assets.roleColors = {
     agricultor: std(0x7A8F3C), comerciante: std(0x8E4C8E), minero: std(0x55606B), lenador: std(0x3E7A6B),
     aldeano: std(0xB0653A), clerigo: std(0xE7DCC3), guardia: std(0xA03A3A), viajero: std(0x3E6F8E), nino: std(0xD08A5A),
-    curandero: std(0x4F8C8C), sabio: std(0x3E4E8E), senor: std(0x6E2E7A)
+    curandero: std(0x4F8C8C), sabio: std(0x3E4E8E), senor: std(0x6E2E7A), alcalde: std(0x2E5E7A), pescador: std(0x3E7A8E)
   };
   Assets.resourceColors = { grano: std(0xE0C060), madera: std(0x8B5E3C), piedra: std(0x8E8B84), mineral: std(0x4A5566), hierro: std(0x8A4A3A), oro: std(0xE0B030) };
   m.gold = std(0xE0B030, { roughness: 0.4 });
   m.iron = std(0x8A4A3A);
   m.lantern = new THREE.MeshStandardMaterial({ color: 0x5A4A30, emissive: 0xFFB050, emissiveIntensity: 0, flatShading: true, roughness: 0.6 });
   m.sail = std(0xEDE4D3);
+  m.lake = new THREE.MeshStandardMaterial({ color: 0x3A6E92, transparent: true, opacity: 0.82, roughness: 0.25, metalness: 0.05, flatShading: true });
+  m.horse = std(0x6B4A2E); m.horseDark = std(0x3A2A1C);
+  m.dog = std(0xC9A66B); m.dogDark = std(0x6A4A2A);
+  m.brick = std(0x8A4B3A); m.slate = std(0x5E6470);
+  m.marble = std(0xE9E4D6, { roughness: 0.6 });
+  m.cross = std(0xC43A2E);
 }
 function mesh(geo, mat, x, y, z, sx, sy, sz, ry) {
   const o = new THREE.Mesh(geo, mat);
@@ -1370,7 +1490,7 @@ function makeHayPile() {
   g.userData.radius = 1.8;
   return g;
 }
-function makeCart() {
+function makeCart(withHorse) {
   const g = new THREE.Group();
   const m = Assets.mat, ge = Assets.geo;
   g.add(mesh(ge.box, m.wood, 0, 0.95, 0, 1.6, 0.7, 2.6));
@@ -1380,6 +1500,14 @@ function makeCart() {
   g.add(w1); g.add(w2);
   g.add(mesh(ge.box, m.wood, -0.5, 0.75, 1.9, 0.12, 0.12, 1.6));
   g.add(mesh(ge.box, m.wood, 0.5, 0.75, 1.9, 0.12, 0.12, 1.6));
+  if (withHorse) {
+    const h = makeHorse();
+    h.position.set(0, 0, 3.4);
+    h.scale.setScalar(0.85);
+    g.add(h);
+    g.add(mesh(ge.box, m.wood, -0.4, 0.75, 2.7, 0.1, 0.1, 1.6));
+    g.add(mesh(ge.box, m.wood, 0.4, 0.75, 2.7, 0.1, 0.1, 1.6));
+  }
   g.userData.wheels = [w1, w2];
   g.userData.radius = 1.6;
   return g;
@@ -1442,12 +1570,174 @@ function makeFeriaTents() {
   g.add(flags);
   return g;
 }
+// Caballo: cuerpo, cuello inclinado con crin, cabeza, cola y cuatro patas. La cabeza baja al pastar.
+function makeHorse() {
+  const g = new THREE.Group();
+  const m = Assets.mat, ge = Assets.geo;
+  const body = mesh(ge.box, m.horse, 0, 1.05, 0, 0.62, 0.62, 1.5);
+  g.add(body);
+  for (const [x, z] of [[-0.2, 0.5], [0.2, 0.5], [-0.2, -0.5], [0.2, -0.5]]) g.add(mesh(ge.box, m.horseDark, x, 0.4, z, 0.16, 0.8, 0.16));
+  const head = new THREE.Group();
+  head.position.set(0, 1.3, 0.7);
+  const neck = mesh(ge.box, m.horse, 0, 0.3, 0.2, 0.3, 0.8, 0.34); neck.rotation.x = -0.6; neck.castShadow = false;
+  const skull = mesh(ge.box, m.horse, 0, 0.62, 0.62, 0.26, 0.28, 0.6); skull.castShadow = false;
+  const mane = mesh(ge.box, m.horseDark, 0, 0.55, 0.05, 0.1, 0.7, 0.3); mane.rotation.x = -0.6; mane.castShadow = false;
+  const earL = mesh(ge.cone4, m.horseDark, -0.1, 0.82, 0.45, 0.06, 0.16, 0.06); earL.castShadow = false;
+  const earR = mesh(ge.cone4, m.horseDark, 0.1, 0.82, 0.45, 0.06, 0.16, 0.06); earR.castShadow = false;
+  head.add(neck, skull, mane, earL, earR);
+  g.add(head);
+  const tail = mesh(ge.box, m.horseDark, 0, 0.95, -0.85, 0.12, 0.6, 0.14); tail.rotation.x = 0.35; tail.castShadow = false;
+  g.add(tail);
+  g.userData.head = head; g.userData.body = body;
+  return g;
+}
+function makeDog() {
+  const g = new THREE.Group();
+  const m = Assets.mat, ge = Assets.geo;
+  const body = mesh(ge.box, m.dog, 0, 0.42, 0, 0.3, 0.3, 0.75);
+  g.add(body);
+  for (const [x, z] of [[-0.1, 0.26], [0.1, 0.26], [-0.1, -0.26], [0.1, -0.26]]) g.add(mesh(ge.box, m.dogDark, x, 0.15, z, 0.09, 0.3, 0.09));
+  const head = new THREE.Group();
+  head.position.set(0, 0.55, 0.42);
+  const skull = mesh(ge.box, m.dog, 0, 0, 0, 0.28, 0.24, 0.3); skull.castShadow = false;
+  const snout = mesh(ge.box, m.dogDark, 0, -0.05, 0.22, 0.14, 0.12, 0.18); snout.castShadow = false;
+  const earL = mesh(ge.box, m.dogDark, -0.13, 0.1, -0.05, 0.08, 0.16, 0.06); earL.castShadow = false;
+  const earR = mesh(ge.box, m.dogDark, 0.13, 0.1, -0.05, 0.08, 0.16, 0.06); earR.castShadow = false;
+  head.add(skull, snout, earL, earR);
+  g.add(head);
+  const tail = mesh(ge.box, m.dog, 0, 0.6, -0.42, 0.07, 0.32, 0.07); tail.rotation.x = -0.6; tail.castShadow = false;
+  g.add(tail);
+  g.userData.head = head; g.userData.body = body;
+  return g;
+}
+// Muelle: tablas sobre postes que se adentran en el lago, una barca amarrada y un cobertizo para el pescado.
+function makePier() {
+  const g = new THREE.Group();
+  const m = Assets.mat, ge = Assets.geo;
+  g.add(mesh(ge.box, m.woodLight, 0, 0.55, 4.5, 2.4, 0.16, 9.5));
+  for (const z of [1, 4, 7, 9]) for (const x of [-1.0, 1.0]) g.add(mesh(ge.box, m.wood, x, -0.3, z, 0.22, 1.9, 0.22));
+  for (const z of [2, 5, 8]) g.add(mesh(ge.box, m.wood, 1.2, 0.9, z, 0.1, 0.55, 0.1));
+  g.add(mesh(ge.cyl, m.wood, -0.9, 0.85, 9.0, 0.28, 0.5, 0.28));
+  const boat = new THREE.Group();
+  boat.position.set(2.6, 0.15, 6.5);
+  boat.add(mesh(ge.box, m.wood, 0, 0.2, 0, 1.2, 0.45, 2.8));
+  boat.add(mesh(ge.box, m.woodLight, 0, 0.45, 0, 1.0, 0.08, 2.4));
+  boat.add(mesh(ge.box, m.wood, 0, 0.3, 1.6, 0.6, 0.4, 0.6, Math.PI / 4));
+  g.add(boat);
+  g.add(mesh(ge.box, m.wood, -2.6, 1.0, 0.2, 2.6, 2.0, 2.2));
+  g.add(mesh(ge.prism, m.thatch, -2.6, 2.0, 0.2, 3.2, 1.0, 2.8));
+  g.add(mesh(ge.cyl, m.wood, -1.0, 0.45, -0.6, 0.35, 0.7, 0.35));
+  g.userData.radius = 3.5;
+  return g;
+}
+// Puente de tablas con barandas y estribos de piedra; cruza un arroyo por donde pasa un camino.
+function makeBridge(len) {
+  const g = new THREE.Group();
+  const m = Assets.mat, ge = Assets.geo;
+  g.add(mesh(ge.box, m.woodLight, 0, 0.3, 0, 3.0, 0.22, len));
+  for (const x of [-1.4, 1.4]) {
+    g.add(mesh(ge.box, m.wood, x, 0.85, 0, 0.12, 0.1, len));
+    for (const z of [-len / 2 + 0.3, 0, len / 2 - 0.3]) g.add(mesh(ge.box, m.wood, x, 0.6, z, 0.14, 0.7, 0.14));
+  }
+  g.add(mesh(ge.box, m.stoneDark, 0, 0.1, -len / 2, 3.4, 0.5, 0.8));
+  g.add(mesh(ge.box, m.stoneDark, 0, 0.1, len / 2, 3.4, 0.5, 0.8));
+  g.userData.radius = 0;
+  return g;
+}
+// Ayuntamiento: soportales, dos plantas y torre del reloj con la bandera del concejo.
+function makeAyuntamiento() {
+  const g = new THREE.Group();
+  const m = Assets.mat, ge = Assets.geo;
+  g.add(mesh(ge.box, m.stoneDark, 0, 0.3, 0, 11.4, 0.6, 7.4));
+  g.add(mesh(ge.box, m.stone, 0, 3.6, -0.6, 11, 6.6, 6));
+  g.add(mesh(ge.prism, m.tile, 0, 6.9, -0.6, 12, 2.2, 7));
+  for (const x of [-4.4, -2.2, 0, 2.2, 4.4]) g.add(mesh(ge.cyl, m.stone, x, 1.5, 3.2, 0.32, 3.0, 0.32));
+  g.add(mesh(ge.box, m.stone, 0, 3.15, 3.2, 11, 0.3, 1.2));
+  g.add(mesh(ge.box, m.wood, 0, 1.2, 2.45, 1.6, 2.4, 0.14));
+  for (const x of [-3.6, 3.6]) addWindow(g, x, 1.6, 2.45, 1.0, 1.2);
+  for (const x of [-3.6, -1.2, 1.2, 3.6]) addWindow(g, x, 4.9, 2.45, 0.9, 1.3);
+  g.add(mesh(ge.box, m.stone, 3.5, 9.5, -1.5, 2.6, 5.4, 2.6));
+  g.add(mesh(ge.cone4, m.slate, 3.5, 13.2, -1.5, 2.2, 2.2, 2.2, Math.PI / 4));
+  const clock = mesh(ge.cyl, m.plaster, 3.5, 10.6, -0.12, 0.8, 0.1, 0.8);
+  clock.rotation.x = Math.PI / 2;
+  g.add(clock);
+  g.add(mesh(ge.box, m.dark, 3.5, 10.85, -0.02, 0.06, 0.55, 0.05));
+  g.add(mesh(ge.box, m.wood, 3.5, 15.0, -1.5, 0.14, 1.6, 0.14));
+  g.add(mesh(ge.box, Assets.roleColors.alcalde, 4.0, 15.5, -1.5, 1.0, 0.55, 0.06));
+  g.userData.radius = 7;
+  return g;
+}
+// Hospital: nave larga encalada con cruz en la fachada, dos chimeneas y bancos al sol.
+function makeHospital() {
+  const g = new THREE.Group();
+  const m = Assets.mat, ge = Assets.geo;
+  g.add(mesh(ge.box, m.stoneDark, 0, 0.3, 0, 12.4, 0.6, 6.4));
+  g.add(mesh(ge.box, m.plaster, 0, 2.6, 0, 12, 4.6, 6));
+  g.add(mesh(ge.prism, m.tile, 0, 4.9, 0, 13, 2.4, 7));
+  g.add(mesh(ge.box, m.wood, 0, 1.2, 3.05, 1.8, 2.4, 0.14));
+  for (const x of [-4.5, -2.6, 2.6, 4.5]) { addWindow(g, x, 1.6, 3.05, 0.9, 1.1); addWindow(g, x, 3.7, 3.05, 0.8, 0.9); }
+  g.add(mesh(ge.box, m.cross, 0, 3.9, 3.1, 0.3, 1.2, 0.12));
+  g.add(mesh(ge.box, m.cross, 0, 3.9, 3.1, 1.2, 0.3, 0.12));
+  g.add(mesh(ge.box, m.stoneDark, -4, 6.6, -1.5, 0.8, 2.0, 0.8));
+  g.add(mesh(ge.box, m.stoneDark, 4, 6.6, -1.5, 0.8, 2.0, 0.8));
+  for (const x of [-3.2, 3.2]) g.add(mesh(ge.box, m.wood, x, 0.45, 4.6, 2.4, 0.16, 0.5));
+  g.add(mesh(ge.prism, m.herb, 5.2, 2.0, 3.5, 2.4, 0.5, 1.4));
+  g.userData.radius = 7;
+  return g;
+}
+// Universidad: pórtico de columnas con frontón, escalinata y cúpula.
+function makeUniversidad() {
+  const g = new THREE.Group();
+  const m = Assets.mat, ge = Assets.geo;
+  g.add(mesh(ge.box, m.stoneDark, 0, 0.45, 0, 14.4, 0.9, 9.4));
+  g.add(mesh(ge.box, m.marble, 0, 3.6, -0.5, 14, 5.4, 8));
+  g.add(mesh(ge.prism, m.slate, 0, 6.3, -0.5, 15, 2.0, 9));
+  for (const x of [-4.5, -2.25, 0, 2.25, 4.5]) g.add(mesh(ge.cyl, m.marble, x, 2.9, 4.2, 0.4, 4.8, 0.4));
+  g.add(mesh(ge.box, m.marble, 0, 5.5, 4.2, 11, 0.6, 2.2));
+  g.add(mesh(ge.prism, m.marble, 0, 5.8, 4.2, 11.6, 1.6, 2.6));
+  for (let i = 0; i < 3; i++) g.add(mesh(ge.box, m.stone, 0, 0.75 + i * 0.3, 6.0 - i * 0.5, 8 - i * 0.6, 0.3, 1.2));
+  g.add(mesh(ge.box, m.wood, 0, 1.9, 3.5, 2.0, 2.8, 0.14));
+  for (const x of [-5, -3, 3, 5]) { addWindow(g, x, 2.0, 3.5, 0.9, 1.4); addWindow(g, x, 4.6, 3.5, 0.9, 1.2); }
+  g.add(mesh(ge.cyl, m.marble, 0, 7.6, -1.5, 2.6, 1.4, 2.6));
+  g.add(mesh(ge.sphere, m.slate, 0, 8.3, -1.5, 2.8, 2.4, 2.8));
+  g.add(mesh(ge.box, m.gold, 0, 10.9, -1.5, 0.2, 1.0, 0.2));
+  g.userData.radius = 8;
+  return g;
+}
+// Fábrica: nave de ladrillo con tejado en dientes de sierra y chimenea que humea (parte dinámica).
+function makeFabrica() {
+  const g = new THREE.Group();
+  const m = Assets.mat, ge = Assets.geo;
+  g.add(mesh(ge.box, m.stoneDark, 0, 0.3, 0, 14.4, 0.6, 9.4));
+  g.add(mesh(ge.box, m.brick, 0, 3.3, 0, 14, 6, 9));
+  for (const x of [-4.7, 0, 4.7]) g.add(mesh(ge.prism, m.slate, x, 6.3, 0, 4.9, 2.0, 9.4));
+  g.add(mesh(ge.box, m.dark, 0, 1.6, 4.55, 3.0, 3.2, 0.14));
+  for (const x of [-5, -2.5, 2.5, 5]) { addWindow(g, x, 3.6, 4.55, 1.2, 1.8); addWindow(g, x, 3.6, -4.55, 1.2, 1.8); }
+  g.add(mesh(ge.cyl, m.brick, 5.2, 9, -2.8, 1.0, 12, 1.0));
+  g.add(mesh(ge.cyl, m.dark, 5.2, 15.1, -2.8, 1.15, 0.4, 1.15));
+  const smoke = new THREE.Group();
+  smoke.userData.dynamic = true;
+  smoke.position.set(5.2, 15.5, -2.8);
+  const puffs = [];
+  for (let i = 0; i < 4; i++) {
+    const s = mesh(ge.sphereLow, m.smoke, 0, i * 1.5, 0, 0.8 + i * 0.35, 0.7 + i * 0.3, 0.8 + i * 0.35);
+    s.castShadow = false;
+    smoke.add(s);
+    puffs.push(s);
+  }
+  g.add(smoke);
+  g.userData.smoke = puffs;
+  g.add(mesh(ge.box, m.wood, -8.2, 0.6, 2.5, 1.6, 0.9, 2.4));
+  g.add(mesh(ge.box, Assets.resourceColors.mineral, -8.2, 1.25, 2.5, 1.3, 0.5, 2.0));
+  g.userData.radius = 8.5;
+  return g;
+}
 function randomRotation() { return rand(0, TAU); }
 
 // ==================== economy.js
 
 const RESOURCES = ['grano', 'madera', 'piedra', 'mineral', 'monedas', 'hierro', 'oro'];
-const RESOURCE_LABELS = { grano: 'Grano', madera: 'Madera', piedra: 'Piedra', mineral: 'Mineral', monedas: 'Monedas', hierro: 'Hierro', oro: 'Oro' };
+const RESOURCE_LABELS = { grano: 'Comida', madera: 'Madera', piedra: 'Piedra', mineral: 'Mineral', monedas: 'Monedas', hierro: 'Hierro', oro: 'Oro' };
 
 // Economía global: un único almacén con capacidad, historial reciente y helpers de gasto.
 const Economy = {
@@ -1585,8 +1875,10 @@ const WEATHER_ICONS = {
   NIEVE: '<svg viewBox="0 0 24 24" fill="none" stroke="#C9A227" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 14h10a4 4 0 0 0 .6-7.95A5.5 5.5 0 0 0 7.2 5.1 4.5 4.5 0 0 0 7 14z"/><circle cx="8.5" cy="18.5" r="0.9"/><circle cx="12.5" cy="20.5" r="0.9"/><circle cx="16.5" cy="18.5" r="0.9"/></svg>',
   TORMENTA: '<svg viewBox="0 0 24 24" fill="none" stroke="#C9A227" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 14h10a4 4 0 0 0 .6-7.95A5.5 5.5 0 0 0 7.2 5.1 4.5 4.5 0 0 0 7 14z"/><path d="M12.5 14l-2.5 4h4l-2.5 4"/></svg>'
 };
-const ROLE_ORDER = ['agricultor', 'comerciante', 'minero', 'lenador', 'aldeano', 'nino', 'clerigo', 'guardia', 'curandero', 'viajero'];
+const ROLE_ORDER = ['agricultor', 'pescador', 'comerciante', 'minero', 'lenador', 'aldeano', 'nino', 'clerigo', 'guardia', 'curandero', 'sabio', 'senor', 'alcalde', 'viajero'];
+const ANIMAL_ROWS = [['gallina', 'Gallinas'], ['cerdo', 'Cerdos'], ['perro', 'Perros'], ['caballo', 'Caballos']];
 
+// Panel sintetizado: cifras del pueblo, progreso y gobierno a la vista; almacén, oficios e historial plegables.
 const HUD = {
   els: {}, acc: 0, entries: [], lastWeatherKey: null, callbacks: {}, hidden: false, lastHistoryLen: -1,
   // journal: si es un array, recoge todos los mensajes aunque el panel esté silenciado (crónica del servidor).
@@ -1595,11 +1887,11 @@ const HUD = {
     this.callbacks = callbacks || {};
     const $ = (id) => document.getElementById(id);
     this.els = {
-      hud: $('hud'), toggle: $('hud-toggle'),
-      time: $('hud-time'), day: $('hud-day'), phase: $('hud-phase'), season: $('hud-season'),
+      hud: $('hud'), toggle: $('hud-toggle'), title: $('hud-title'),
+      time: $('hud-time'), day: $('hud-day'), season: $('hud-season'),
       weather: $('hud-weather'), weatherSub: $('hud-weather-sub'), icon: $('hud-weather-icon'),
-      stats: $('hud-stats'), resources: $('hud-resources'), town: $('hud-town'), log: $('hud-log'),
-      tech: $('hud-tech'), techBar: $('hud-tech-bar'), ruler: $('hud-ruler'),
+      alerts: $('hud-alerts'), town: $('hud-town'), progress: $('hud-progress'), techBar: $('hud-tech-bar'),
+      stats: $('hud-stats'), resources: $('hud-resources'), log: $('hud-log'),
       chart: $('hud-chart'), chartLegend: $('hud-chart-legend'),
       pause: $('btn-pause'), speed: $('btn-speed'), rotate: $('btn-rotate'),
       save: $('btn-save'), load: $('btn-load'), reset: $('btn-reset'), saved: $('hud-saved'),
@@ -1682,7 +1974,7 @@ const HUD = {
     for (const [k, v, cls] of rows) html += `<span class="k ${cls || ''}">${k}</span><span class="v ${cls || ''}">${v}</span>`;
     el.innerHTML = html;
   },
-  // Gráfica de líneas en SVG: población, grano y enfermos de los últimos días.
+  // Gráfica de líneas en SVG: población, comida y enfermos de los últimos días.
   drawChart() {
     const H = Growth.history;
     const svg = this.els.chart;
@@ -1708,7 +2000,7 @@ const HUD = {
     }
     svg.innerHTML = out;
     const last = H[H.length - 1];
-    this.els.chartLegend.innerHTML = `<span style="color:#C9A227">Población ${last.pop}</span><span style="color:#7FAE68">Grano ${last.grano}</span><span style="color:#D06A5A">Enfermos ${last.sick}</span>`;
+    this.els.chartLegend.innerHTML = `<span style="color:#C9A227">Población ${last.pop}</span><span style="color:#7FAE68">Comida ${last.grano}</span><span style="color:#D06A5A">Enfermos ${last.sick}</span>`;
   },
   bar(label, value, color) {
     const pct = Math.round(Math.max(0, Math.min(1, value)) * 100);
@@ -1726,7 +2018,8 @@ const HUD = {
     const lines = [];
     lines.push(`<p class="agent-act">${ACTIVITY_LABELS[a.activity] || a.activity}, ${STATE_LABELS[a.state] || a.state}${a.sleeping ? ', en casa' : ''}</p>`);
     if (a.helping) lines.push(`<p>Echa una mano con ${RESOURCE_LABELS[a.helping].toLowerCase()}</p>`);
-    if (a.sick) lines.push(`<p class="agent-warn">Está ${a.isFemale ? 'enferma' : 'enfermo'}</p>`);
+    if (a.infected) lines.push(`<p class="agent-warn">Tiene la peste</p>`);
+    else if (a.sick) lines.push(`<p class="agent-warn">Está ${a.isFemale ? 'enferma' : 'enfermo'}</p>`);
     if (a.carry.res && a.carry.amount > 0.5) lines.push(`<p>Lleva ${Math.round(a.carry.amount)} de ${RESOURCE_LABELS[a.carry.res].toLowerCase()}</p>`);
     lines.push(this.bar('Hambre', a.needs.hunger, '#D08A5A'));
     lines.push(this.bar('Energía', a.needs.energy, '#7FAE68'));
@@ -1743,10 +2036,10 @@ const HUD = {
     this.updateAgentPanel();
     if (this.hidden) return;
     const e = this.els;
+    e.title.textContent = Eras.title;
     e.time.textContent = this.formatTime(DayCycle.hour);
     e.day.textContent = 'Día ' + DayCycle.day;
-    e.phase.textContent = DayCycle.phase;
-    e.season.textContent = `${DayCycle.season}, día ${DayCycle.dayOfSeason} de ${CONFIG.calendar.daysPerSeason}, año ${DayCycle.year}`;
+    e.season.textContent = `${DayCycle.phase} · ${DayCycle.season}, día ${DayCycle.dayOfSeason} de ${CONFIG.calendar.daysPerSeason}, año ${DayCycle.year}`;
     const snowing = Weather.isWinter && Weather.isWet;
     const key = Weather.state + (snowing ? '-nieve' : '');
     if (this.lastWeatherKey !== key) {
@@ -1755,26 +2048,48 @@ const HUD = {
       e.weatherSub.textContent = Weather.sub;
       e.icon.innerHTML = WEATHER_ICONS[snowing && Weather.state === 'LLUVIA' ? 'NIEVE' : Weather.state];
     }
+    // Sucesos exógenos en curso: solo aparecen cuando pasa algo.
+    const alerts = Exogenous.alerts();
+    e.alerts.hidden = alerts.length === 0;
+    if (alerts.length) e.alerts.innerHTML = alerts.map(t => `<div>${t}</div>`).join('');
     const counts = {};
     for (const r of ROLE_ORDER) counts[r] = 0;
-    let sheltered = 0, hunger = 0, energy = 0, mood = 0, health = 0, residents = 0, sleeping = 0, sick = 0;
+    let mood = 0, health = 0, residents = 0, sick = 0, infected = 0;
     for (const a of agents) {
       counts[a.role] = (counts[a.role] || 0) + 1;
-      if (a.state === STATE.SHELTERED) sheltered++;
-      if (a.sleeping) sleeping++;
       if (a.role !== 'viajero') {
-        residents++; hunger += a.needs.hunger; energy += a.needs.energy; mood += a.needs.mood; health += a.needs.health;
+        residents++; mood += a.needs.mood; health += a.needs.health;
         if (a.sick) sick++;
+        if (a.infected) infected++;
       }
     }
-    const rows = [];
-    for (const r of ROLE_ORDER) if (counts[r] > 0 || r === 'aldeano') rows.push([ROLE_LABELS[r], counts[r], r === 'nino' || r === 'clerigo' ? 'optional' : '']);
     const pct = (v) => Math.round(v * 100) + '%';
     let livestock = 0;
     for (const an of animals) if (!an.removed) livestock++;
-    rows.push(['Total', agents.length, 'total'], ['Animales', livestock, ''], ['Refugiados', sheltered, ''], ['Durmiendo', sleeping, 'optional']);
-    if (rows.length % 2 === 1) rows.push(['', '', '']);
-    this.rows(e.stats, rows);
+    const town = [
+      ['Habitantes', `${residents} / ${Growth.housingCapacity()}`, ''],
+      ['Animales', livestock, ''],
+      ['Ánimo', pct(residents ? mood / residents : 0), ''],
+      ['Salud', pct(residents ? health / residents : 0), ''],
+      ['Enfermos', infected ? `${sick} (${infected} de peste)` : sick, ''],
+      ['Difuntos', Growth.deaths, ''],
+      ['Obra', Growth.siteLabel(), ''], ['', '', '']
+    ];
+    this.rows(e.town, town);
+    const t = Tech.current;
+    const ruler = Ruler.agent && !Ruler.agent.removed ? Ruler.agent : null;
+    const progress = [
+      ['Etapa', Eras.label, ''],
+      ['Estudio', t ? t.label + (Tech.waiting === t.id ? ' (faltan materiales)' : '') : 'todo descubierto', ''],
+      ['Avances', `${Tech.unlocked.size} / ${CONFIG.tech.tree.length}`, 'optional'],
+      ['Gobierno', ruler ? `${Ruler.titleFor(ruler)} ${ruler.name}` : 'sin gobierno', ''],
+      ['Decreto', Ruler.policy ? POLICY_LABELS[Ruler.policy].split(':')[0].replace('Decreto de ', '') : 'ninguno', ''],
+      ['Popularidad', pct(Ruler.popularity), ''],
+      ['Tesoro', Math.round(Economy.treasury), 'optional']
+    ];
+    if (Exogenous.customs.length) progress.push(['Costumbres', Exogenous.customs.length, 'optional']);
+    this.rows(e.progress, progress);
+    e.techBar.style.width = Math.round(Tech.progress() * 100) + '%';
     const res = [];
     for (const r of RESOURCES) {
       const v = Math.floor(Economy.stock[r]);
@@ -1783,34 +2098,15 @@ const HUD = {
     }
     if (res.length % 2 === 1) res.push(['', '', '']);
     this.rows(e.resources, res);
-    const t = Tech.current;
-    const techRows = [
-      ['Estudio', t ? t.label : 'todo descubierto', ''],
-      ['Avances', `${Tech.unlocked.size} / ${CONFIG.tech.tree.length}`, ''],
-      ['Saber al día', Tech.rate().toFixed(1), 'optional']
-    ];
-    this.rows(e.tech, techRows);
-    e.techBar.style.width = Math.round(Tech.progress() * 100) + '%';
-    const rulerRows = [
-      ['Señor', Ruler.name, ''],
-      ['Popularidad', pct(Ruler.popularity), ''],
-      ['Tesoro', Math.round(Economy.treasury), ''],
-      ['Decreto', Ruler.policy ? POLICY_LABELS[Ruler.policy].split(':')[0].replace('Decreto de ', '') : 'ninguno', ''],
-      ['Faroles', Lamps.list.length, 'optional'],
-      ['Yacimientos', `${World.deposits.length} / ${Deposits.list.length}`, '']
-    ];
-    this.rows(e.ruler, rulerRows);
-    const town = [
-      ['Vivienda', `${residents} / ${Growth.housingCapacity()}`, ''],
-      ['Hambre media', pct(residents ? hunger / residents : 0), ''],
-      ['Energía media', pct(residents ? energy / residents : 0), 'optional'],
-      ['Ánimo medio', pct(residents ? mood / residents : 0), ''],
-      ['Salud media', pct(residents ? health / residents : 0), ''],
-      ['Enfermos', sick, ''],
-      ['Difuntos', Growth.deaths, ''],
-      ['Obra', Growth.siteLabel(), '']
-    ];
-    this.rows(e.town, town);
+    const rows = [];
+    for (const r of ROLE_ORDER) if (counts[r] > 0) rows.push([ROLE_LABELS[r], counts[r], '']);
+    for (const [k, label] of ANIMAL_ROWS) {
+      let n = 0;
+      for (const an of animals) if (an.kind === k && !an.removed) n++;
+      if (n > 0) rows.push([label, n, 'optional']);
+    }
+    if (rows.length % 2 === 1) rows.push(['', '', '']);
+    this.rows(e.stats, rows);
     this.drawChart();
   }
 };
@@ -1912,7 +2208,10 @@ const Weather = {
     this.timer -= dt;
     if (this.timer <= 0) {
       const row = CONFIG.weather.transitions[this.state];
-      this.set(weightedPick(row, null, CONFIG.calendar.weatherBias[DayCycle.season]));
+      const bias = Object.assign({}, CONFIG.calendar.weatherBias[DayCycle.season]);
+      const xb = Exogenous.weatherBias();
+      if (xb) for (const k in xb) bias[k] = (bias[k] || 1) * xb[k];
+      this.set(weightedPick(row, null, bias));
     }
     // Transición gradual: aproximación exponencial que llega al 95 % en transitionSeconds.
     const k = 1 - Math.exp(-dt * 3 / CONFIG.weather.transitionSeconds);
@@ -1966,7 +2265,7 @@ const Weather = {
 
 const SKY = { day: hex(PALETTE.skyDay), dawn: hex(PALETTE.skyDawn), dusk: hex(PALETTE.skyDusk), night: hex(PALETTE.skyNight) };
 const SUN_WARM = hex(0xFFB070), SUN_WHITE = hex(0xFFF4E0), GREY = hex(0x6E7783), COLD = hex(0x9FB4C8), WHITE = hex(0xFFFFFF);
-const SUN_HIGH = hex(0xFFF3C4), SNOW = hex(0xE8EEF5);
+const SUN_HIGH = hex(0xFFF3C4), SNOW = hex(0xE8EEF5), DRY_GRASS = hex(0xD9C070), DRY_CROP = hex(0xB8A050);
 const GROUND_TINT = hex(PALETTE.grass);
 const grassTints = {}, leafTints = {};
 for (const s of CONFIG.calendar.seasons) { grassTints[s] = hex(CONFIG.calendar.grassTint[s]); leafTints[s] = hex(CONFIG.calendar.leafTint[s]); }
@@ -2080,11 +2379,13 @@ function applyLighting() {
   Assets.mat.sun.color.lerpColors(SUN_WARM, SUN_HIGH, smoothstep(0, 0.4, elev));
   // Paleta estacional: los tintes se aproximan suavemente para que el cambio de estación no sea un salto.
   const k = 0.02;
-  DayCycle.grassTint.lerp(grassTints[DayCycle.season], k);
+  // En sequía la hierba y los cultivos amarillean.
+  _c2.copy(grassTints[DayCycle.season]).lerp(DRY_GRASS, Exogenous.dryness * 0.75);
+  DayCycle.grassTint.lerp(_c2, k);
   DayCycle.leafTint.lerp(leafTints[DayCycle.season], k);
   Terrain.mesh.material.color.copy(DayCycle.grassTint).lerp(SNOW, snow * 0.8);
   Assets.mat.canopy.color.copy(DayCycle.leafTint).lerp(SNOW, snow * 0.5);
-  Assets.mat.crop.color.copy(Crops.tint);
+  Assets.mat.crop.color.copy(Crops.tint).lerp(DRY_CROP, Exogenous.dryness * 0.8);
 }
 
 // ==================== world.js
@@ -2321,9 +2622,22 @@ function buildBuildings() {
   placeGroup(makeCart(), g.x + 3, g.z - 9, -0.6);
   World.obstacles.push({ x: a.x + 6, z: a.z - 1, r: 2 }, { x: g.x + 3, z: g.z - 9, r: 2 });
   buildFences();
+  // Muelle en la orilla del lago, a la altura del agua y no del fondo excavado.
+  const lake = Water.lakes[0], ln = Graph.node('lago');
+  const ldir = _v1.set(ln.x - lake.x, 0, ln.z - lake.z).normalize();
+  const shoreR = 1.1 / Math.sqrt((ldir.x / lake.rx) ** 2 + (ldir.z / lake.rz) ** 2);
+  const px = lake.x + ldir.x * shoreR, pz = lake.z + ldir.z * shoreR;
+  const pier = makePier();
+  pier.position.set(px, Water.level + 0.25, pz);
+  pier.rotation.y = faceToward(px, pz, lake.x, lake.z);
+  pier.userData.static = true;
+  Render.scene.add(pier);
+  World.buildings.muelle = pier;
+  World.obstacles.push({ x: px, z: pz, r: 3 });
+  World.anchors.lago = new THREE.Vector3(lake.x + ldir.x * (shoreR + 3.2), 0, lake.z + ldir.z * (shoreR + 3.2));
   World.feria = makeFeriaTents();
   World.feria.position.set(0, terrainHeight(0, 0), 0);
-  World.cart = makeCart();
+  World.cart = makeCart(true);
   World.sunMesh = new THREE.Mesh(Assets.geo.sphere, Assets.mat.sun);
   World.sunMesh.scale.setScalar(9);
   World.moonMesh = new THREE.Mesh(Assets.geo.sphere, Assets.mat.moon);
@@ -2414,6 +2728,7 @@ function spotIsClear(x, z, margin) {
 }
 function isFreeSpot(x, z, margin) {
   if (Math.abs(x) > Terrain.half - 3 || Math.abs(z) > Terrain.half - 3) return false;
+  if (isWater(x, z) || streamDistance(x, z) < margin + 2) return false;
   RoadField.nearest(x, z, _near);
   if (_near.p && _near.d < CONFIG.road.width * 0.5 + margin) return false;
   if (!spotIsClear(x, z, margin)) return false;
@@ -2530,7 +2845,7 @@ function hideTreesNear(x, z, r) {
 
 // Faroles: postes y linternas instanciados que se instalan por los caminos cuando se conoce el alumbrado.
 const Lamps = {
-  list: [], posts: null, lanterns: null, lights: [],
+  list: [], posts: null, lanterns: null, lights: [], intensityMul: 1,
   init() {
     const N = CONFIG.lamps.max;
     const zero = new THREE.Matrix4().makeScale(0, 0, 0);
@@ -2615,8 +2930,14 @@ const Lamps = {
     return placed;
   },
   setNight(f) {
-    Assets.mat.lantern.emissiveIntensity = f * 2.6;
-    for (let i = 0; i < this.lights.length; i++) this.lights[i].intensity = i < this.list.length ? f * 24 : 0;
+    Assets.mat.lantern.emissiveIntensity = f * 2.6 * this.intensityMul;
+    for (let i = 0; i < this.lights.length; i++) this.lights[i].intensity = i < this.list.length ? f * 24 * this.intensityMul : 0;
+  },
+  // Con las etapas la luz pasa del aceite al gas: más blanca y más fuerte.
+  setStyle(color, mul) {
+    this.intensityMul = mul;
+    Assets.mat.lantern.emissive.set(color);
+    for (const l of this.lights) l.color.set(color);
   },
   serialize() { return this.list.slice(); },
   restore(list) { if (list) for (const rec of list) this.addLamp(rec); }
@@ -2655,14 +2976,59 @@ const Deposits = {
   }
 };
 
+// Lámina de agua única a la altura del nivel: asoma donde el terreno está excavado. Los cuerpos de agua
+// entran como obstáculos (círculos que cubren la elipse) para que nada se plante ni se pasee dentro.
+function buildWater() {
+  const geo = new THREE.PlaneGeometry(Terrain.size - 1, Terrain.size - 1, 1, 1);
+  geo.rotateX(-Math.PI / 2);
+  const m = new THREE.Mesh(geo, Assets.mat.lake);
+  m.position.y = Water.level;
+  m.receiveShadow = true;
+  Render.scene.add(m);
+  Water.mesh = m;
+  for (const l of Water.lakes) {
+    const big = Math.max(l.rx, l.rz), small = Math.min(l.rx, l.rz);
+    const off = (big - small) * 1.5;
+    World.obstacles.push({ x: l.x, z: l.z, r: small * 0.92 });
+    const ax = l.rx >= l.rz ? 1 : 0, az = 1 - ax;
+    World.obstacles.push({ x: l.x + ax * off, z: l.z + az * off, r: small * 0.9 }, { x: l.x - ax * off, z: l.z - az * off, r: small * 0.9 });
+  }
+  for (const s of Water.streams) for (let i = 0; i < s.pts.length; i += 2) World.obstacles.push({ x: s.pts[i].x, z: s.pts[i].z, r: s.width * 0.5 + 2.5 });
+  World.dynamics.push((dt) => {
+    Water.rise += (Water.riseTarget - Water.rise) * Math.min(1, dt * 0.4);
+    m.position.y = Water.level + Water.rise + Math.sin(Sim.time * 0.8) * 0.02;
+  });
+}
+// Donde un camino cruza un arroyo se tiende un puente, orientado con el camino y a su altura.
+function addBridgesForEdge(e) {
+  for (let i = 1; i < e.pts.length - 1; i++) {
+    const p = e.pts[i];
+    let s = null;
+    for (const st of Water.streams) { let best = Infinity; for (const q of st.pts) best = Math.min(best, Math.hypot(q.x - p.x, q.z - p.z)); if (best < st.width * 0.5 + 0.6) { s = st; break; } }
+    if (!s) continue;
+    if (World.bridges.some(b => Math.hypot(b.x - p.x, b.z - p.z) < 9)) continue;
+    const a = e.pts[i - 1], b = e.pts[i + 1];
+    const g = makeBridge(s.width + 5);
+    const h = p.h !== undefined ? p.h : terrainHeight(p.x, p.z);
+    g.position.set(p.x, h + 0.1, p.z);
+    g.rotation.y = Math.atan2(b.x - a.x, b.z - a.z);
+    g.userData.static = true;
+    Render.scene.add(g);
+    if (Terrain.mesh && World.trees) mergeGroup(g);
+    World.bridges.push({ x: p.x, z: p.z });
+  }
+}
 function populateScene() {
   initAssets();
   initNoise();
+  initWater();
   Graph.build();
   registerFootprints();
   buildTerrain(Render.scene);
+  buildWater();
   Graph.updateHeights();
   buildBuildings();
+  for (const e of Graph.edges) addBridgesForEdge(e);
   mergeStaticMeshes();
   buildVegetation();
   Deposits.init();
@@ -2684,7 +3050,11 @@ const SITE_RULES = {
   herreria: { anchors: () => ['almacen', 'mina', 'mercado'], margin: 6.5, node: true },
   molino: { anchors: () => ['granja'], margin: 6, node: true, dist: [14, 30] },
   torre: { anchors: () => ['castillo', 'bosque', 'mina', 'granja'], margin: 5, node: true, dist: [12, 28] },
-  granero: { anchors: () => ['almacen'], margin: 5.5, node: false, dist: [8, 16] }
+  granero: { anchors: () => ['almacen'], margin: 5.5, node: false, dist: [8, 16] },
+  ayuntamiento: { anchors: () => ['plaza', 'mercado', 'iglesia', 'taberna', 'castillo'], margin: 6.5, node: true, dist: [10, 30] },
+  hospital: { anchors: () => ['iglesia', 'plaza', 'taberna', 'botica', 'castillo', 'casa3'], margin: 6.5, node: true, dist: [10, 30] },
+  universidad: { anchors: () => ['escuela', 'iglesia', 'plaza', 'ayuntamiento', 'castillo', 'taberna'], margin: 7.5, node: true, dist: [12, 34] },
+  fabrica: { anchors: () => ['almacen', 'mina', 'herreria'], margin: 9, node: true, dist: [14, 34] }
 };
 function findSite(type) {
   const plaza = Graph.node('plaza');
@@ -2749,10 +3119,11 @@ function removeSiteVisual() {
   World.siteGroup = null;
 }
 let homeSerial = 5;
-const FOOTPRINT = { casa: 4, botica: 5, escuela: 5.6, herreria: 5.2, molino: 4.5, torre: 3.5, yacimiento: 5.5, granero: 4.5, campo: 7.5 };
+const FOOTPRINT = { casa: 4, botica: 5, escuela: 5.6, herreria: 5.2, molino: 4.5, torre: 3.5, yacimiento: 5.5, granero: 4.5, campo: 7.5, ayuntamiento: 7, hospital: 7, universidad: 8, fabrica: 8.5 };
 const FACTORY = {
   casa: () => makeCottage(), botica: () => makeBotica(), escuela: () => makeEscuela(), herreria: () => makeHerreria(),
-  molino: () => makeMolino(), torre: () => makeTorre(), granero: () => makeGranary(), yacimiento: (rec) => makeDeposit(rec.kind)
+  molino: () => makeMolino(), torre: () => makeTorre(), granero: () => makeGranary(), yacimiento: (rec) => makeDeposit(rec.kind),
+  ayuntamiento: () => makeAyuntamiento(), hospital: () => makeHospital(), universidad: () => makeUniversidad(), fabrica: () => makeFabrica()
 };
 function hasNode(type) { return type !== 'granero' && type !== 'campo'; }
 // Fase 1: grafo, huellas y caminos. Debe ir antes de recalcular el terreno.
@@ -2770,6 +3141,7 @@ function prepareConstruction(rec) {
       const e = Graph.addEdge(rec.key, rec.edgeTo, rec.offsets);
       rec.offsets = e.offsets;
       Graph.computeRoutes();
+      addBridgesForEdge(e);
     }
     hideTreesNear(rec.node.x, rec.node.z, 4);
     for (const e of Graph.edges) if (e.a === rec.key || e.b === rec.key) for (let i = 0; i < e.pts.length; i += 3) hideTreesNear(e.pts[i].x, e.pts[i].z, 3.5);
@@ -2801,7 +3173,23 @@ function realizeConstruction(rec) {
     World.anchors[rec.key] = spot.anchor;
     if (rec.type === 'botica') World.botica = spot;
     else if (rec.type === 'escuela') World.escuela = spot;
-    else if (rec.type === 'molino') {
+    else if (rec.type === 'hospital') World.hospital = spot;
+    else if (rec.type === 'universidad') World.universidad = spot;
+    else if (rec.type === 'ayuntamiento') World.ayuntamiento = spot;
+    else if (rec.type === 'fabrica') {
+      World.fabrica = spot;
+      const puffs = g.userData.smoke;
+      World.dynamics.push((dt) => {
+        for (let i = 0; i < puffs.length; i++) {
+          const p = puffs[i];
+          p.position.y += dt * 0.9;
+          if (p.position.y > 6.5) p.position.y -= 6.5;
+          const t = p.position.y / 6.5;
+          p.scale.setScalar(0.6 + t * 1.3);
+          p.position.x = Math.sin(Sim.time * 0.7 + i) * 0.5 * t;
+        }
+      });
+    } else if (rec.type === 'molino') {
       const blades = g.userData.blades;
       World.dynamics.push((dt) => { blades.rotation.z += dt * 0.9; });
     } else if (rec.type === 'yacimiento') {
@@ -2901,16 +3289,26 @@ function buildWolf() {
   g.userData.head = head; g.userData.body = body;
   return g;
 }
+// Cada especie: cómo se construye, a qué velocidad va, a qué altura lleva el cuerpo y cuánto se aleja de su sitio.
+const KINDS = {
+  gallina: { build: buildChicken, speedMul: 1.1, bodyY: 0.34, scale: [0.85, 1.1], radius: 1, graze: true },
+  cerdo: { build: buildPig, speedMul: 0.8, bodyY: 0.42, scale: [0.9, 1.2], radius: 1, graze: true },
+  perro: { build: makeDog, speedMul: 2.0, bodyY: 0.42, scale: [0.85, 1.05], radius: 1.7, graze: false },
+  caballo: { build: makeHorse, speedMul: 0.9, bodyY: 1.05, scale: [0.95, 1.1], radius: 1.5, graze: true }
+};
+const ANIMAL_LABELS = { gallina: 'gallinas', cerdo: 'cerdos', perro: 'perros', caballo: 'caballos', lobo: 'lobos' };
+
 class Animal {
   constructor(kind, anchor) {
+    const K = KINDS[kind];
     this.kind = kind;
-    this.group = kind === 'gallina' ? buildChicken() : buildPig();
+    this.group = K.build();
     this.pos = this.group.position;
     this.baseAnchor = anchor.clone();
     this.target = new THREE.Vector3();
     this.heading = rand(0, TAU);
     this.targetHeading = this.heading;
-    this.speed = CONFIG.animals.speed * (kind === 'gallina' ? 1.1 : 0.8);
+    this.speed = CONFIG.animals.speed * K.speedMul;
     this.state = 'peck';
     this.timer = rand(0.5, 2);
     this.phase = rand(0, TAU);
@@ -2922,20 +3320,21 @@ class Animal {
       const d = s.door.distanceTo(anchor);
       if (d < bestD) { bestD = d; best = s; }
     }
-    this.rainAnchor = best.door.clone();
-    this.group.scale.setScalar(kind === 'gallina' ? rand(0.85, 1.1) : rand(0.9, 1.2));
+    this.rainAnchor = best ? best.door.clone() : anchor.clone();
+    this.group.scale.setScalar(rand(K.scale[0], K.scale[1]));
     Render.scene.add(this.group);
     animals.push(this);
   }
   pickTarget() {
-    const scared = Weather.isWet || wolves.length > 0;
+    const K = KINDS[this.kind];
+    const scared = Weather.isWet || (wolves.length > 0 && this.kind !== 'perro');
     const anchor = scared ? this.rainAnchor : this.baseAnchor;
-    const radius = scared ? CONFIG.animals.rainRadius : CONFIG.animals.wanderRadius;
+    const radius = (scared ? CONFIG.animals.rainRadius : CONFIG.animals.wanderRadius) * K.radius;
     for (let i = 0; i < 4; i++) {
       const a = rand(0, TAU), d = rand(0.8, radius);
       const x = anchor.x + Math.cos(a) * d, z = anchor.z + Math.sin(a) * d;
       RoadField.nearest(x, z, _near);
-      const onRoad = _near.p && _near.d < CONFIG.road.width * 0.5 && !scared;
+      const onRoad = _near.p && _near.d < CONFIG.road.width * 0.5 && !scared && this.kind !== 'perro';
       if (!onRoad && spotIsClear(x, z, 0.5)) { this.target.set(x, 0, z); return true; }
     }
     return false;
@@ -2944,8 +3343,37 @@ class Animal {
     this.removed = true;
     Render.scene.remove(this.group);
   }
+  // Los perros corren hacia el lobo más cercano; el lobo huye al tenerlos encima.
+  nearestWolf() {
+    let best = null, bestD = Infinity;
+    for (const w of wolves) {
+      const d = Math.hypot(w.pos.x - this.pos.x, w.pos.z - this.pos.z);
+      if (d < bestD) { bestD = d; best = w; }
+    }
+    return best;
+  }
   update(dt) {
-    const u = this.group.userData;
+    const u = this.group.userData, K = KINDS[this.kind];
+    if (this.kind === 'perro' && wolves.length > 0) {
+      const w = this.nearestWolf();
+      if (w) {
+        const dx = w.pos.x - this.pos.x, dz = w.pos.z - this.pos.z;
+        const d = Math.hypot(dx, dz);
+        if (d > 1.2) {
+          const step = this.speed * 1.4 * dt;
+          this.pos.x += dx / d * step; this.pos.z += dz / d * step;
+          this.targetHeading = Math.atan2(dx, dz);
+          this.phase += dt * 16;
+        }
+        this.state = 'peck';
+        this.timer = 0.2;
+        u.body.position.y = K.bodyY + Math.abs(Math.sin(this.phase)) * 0.06;
+        this.heading += angleDelta(this.heading, this.targetHeading) * Math.min(1, 8 * dt);
+        this.group.rotation.y = this.heading;
+        this.pos.y = terrainHeight(this.pos.x, this.pos.z);
+        return;
+      }
+    }
     if (this.state === 'walk') {
       const dx = this.target.x - this.pos.x, dz = this.target.z - this.pos.z;
       const d = Math.hypot(dx, dz);
@@ -2953,18 +3381,18 @@ class Animal {
       if (d <= step) {
         this.pos.x = this.target.x; this.pos.z = this.target.z;
         this.state = 'peck';
-        this.timer = rand(CONFIG.animals.peckMin, CONFIG.animals.peckMax);
+        this.timer = rand(CONFIG.animals.peckMin, CONFIG.animals.peckMax) * (K.graze ? 1 : 0.6);
       } else {
         this.pos.x += dx / d * step; this.pos.z += dz / d * step;
         this.targetHeading = Math.atan2(dx, dz);
         this.phase += dt * 12;
       }
       u.head.rotation.x = lerp(u.head.rotation.x, 0, Math.min(1, dt * 6));
-      u.body.position.y = (this.kind === 'gallina' ? 0.34 : 0.42) + Math.abs(Math.sin(this.phase)) * 0.04;
+      u.body.position.y = K.bodyY + Math.abs(Math.sin(this.phase)) * 0.04;
     } else {
       this.timer -= dt;
-      const peck = Math.max(0, Math.sin(Sim.time * 5 + this.phase));
-      u.head.rotation.x = peck * 0.6;
+      const peck = Math.max(0, Math.sin(Sim.time * (K.graze ? 5 : 2) + this.phase));
+      u.head.rotation.x = peck * (K.graze ? 0.6 : 0.15);
       if (this.timer <= 0 || wolves.length > 0) {
         if (this.pickTarget()) this.state = 'walk'; else this.timer = rand(0.5, 1.5);
       }
@@ -2974,7 +3402,7 @@ class Animal {
     this.pos.y = terrainHeight(this.pos.x, this.pos.z);
   }
 }
-// Lobos: salen del bosque de noche, acechan a la gallina más cercana y huyen de los guardias.
+// Lobos: salen del bosque de noche, acechan a la gallina más cercana y huyen de guardias y perros.
 const wolves = [];
 class Wolf {
   constructor(x, z) {
@@ -3021,6 +3449,15 @@ class Wolf {
           return;
         }
       }
+      for (const an of animals) {
+        if (an.kind !== 'perro' || an.removed) continue;
+        if (Math.hypot(an.pos.x - this.pos.x, an.pos.z - this.pos.z) < CONFIG.animals.dogScareRadius) {
+          this.flee();
+          if (ev) ev.scared++;
+          HUD.log('Los perros ahuyentan a un lobo a ladridos');
+          return;
+        }
+      }
       let prey = null, best = Infinity;
       for (const an of animals) {
         if (an.kind !== 'gallina' || an.removed) continue;
@@ -3059,34 +3496,63 @@ class Wolf {
 function removeAllWolves() {
   for (const w of wolves.slice()) w.remove();
 }
-function spawnAnimals(saved) {
+// Dónde vive cada especie: gallinas y cerdos junto a las casas y la granja, caballos en el prado y el castillo, perros en las puertas.
+function animalSpot(kind, i) {
   const c1 = Graph.node('casa1'), c2 = Graph.node('casa2'), g = Graph.node('granja');
-  const chickenSpots = [
-    new THREE.Vector3(c1.x + 8, 0, c1.z + 8), new THREE.Vector3(c2.x - 10, 0, c2.z + 3), new THREE.Vector3(g.x - 4, 0, g.z + 3)
-  ];
-  const pigSpots = [new THREE.Vector3(g.x - 2, 0, g.z + 6), new THREE.Vector3(c2.x - 11, 0, c2.z + 2)];
-  const nChickens = saved ? saved.filter(s => s.kind === 'gallina').length : CONFIG.animals.gallinas;
-  const nPigs = saved ? saved.filter(s => s.kind === 'cerdo').length : CONFIG.animals.cerdos;
-  for (let i = 0; i < nChickens; i++) new Animal('gallina', chickenSpots[i % chickenSpots.length]);
-  for (let i = 0; i < nPigs; i++) new Animal('cerdo', pigSpots[i % pigSpots.length]);
+  let spots;
+  if (kind === 'gallina') spots = [new THREE.Vector3(c1.x + 8, 0, c1.z + 8), new THREE.Vector3(c2.x - 10, 0, c2.z + 3), new THREE.Vector3(g.x - 4, 0, g.z + 3)];
+  else if (kind === 'cerdo') spots = [new THREE.Vector3(g.x - 2, 0, g.z + 6), new THREE.Vector3(c2.x - 11, 0, c2.z + 2)];
+  else if (kind === 'caballo') spots = [new THREE.Vector3(g.x + 10, 0, g.z - 3), World.anchors.castillo ? World.anchors.castillo.clone().add(new THREE.Vector3(7, 0, 4)) : new THREE.Vector3(c1.x + 10, 0, c1.z + 4)];
+  else spots = World.homes.length ? World.homes.map(h => h.door) : [new THREE.Vector3(c1.x, 0, c1.z)];
+  return spots[i % spots.length];
+}
+function countKind(kind) {
+  let n = 0;
+  for (const a of animals) if (a.kind === kind && !a.removed) n++;
+  return n;
+}
+function spawnAnimals(saved) {
+  const counts = { gallina: CONFIG.animals.gallinas, cerdo: CONFIG.animals.cerdos, perro: CONFIG.animals.perros, caballo: CONFIG.animals.caballos };
   if (saved) {
-    const chickens = animals.filter(a => a.kind === 'gallina'), pigs = animals.filter(a => a.kind === 'cerdo');
-    let ci = 0, pi = 0;
+    for (const k in counts) counts[k] = 0;
+    for (const s of saved) if (KINDS[s.kind]) counts[s.kind] = (counts[s.kind] || 0) + 1;
+  }
+  const made = {};
+  for (const k in counts) {
+    made[k] = [];
+    for (let i = 0; i < counts[k]; i++) made[k].push(new Animal(k, animalSpot(k, i)));
+  }
+  if (saved) {
+    const idx = {};
     for (const s of saved) {
-      const a = s.kind === 'gallina' ? chickens[ci++] : pigs[pi++];
+      if (!KINDS[s.kind]) continue;
+      const a = made[s.kind][idx[s.kind] = (idx[s.kind] || 0)];
+      idx[s.kind]++;
       if (!a) continue;
       a.pos.set(s.x, terrainHeight(s.x, s.z), s.z);
       a.heading = s.h; a.targetHeading = s.h;
     }
   }
 }
-// Con el tiempo las gallinas se reponen: si quedan pocas, nace un pollo cerca de la granja.
-function replenishChickens() {
-  const chickens = animals.filter(a => a.kind === 'gallina' && !a.removed).length;
-  if (chickens >= CONFIG.animals.gallinas) return false;
-  const g = Graph.node('granja');
-  new Animal('gallina', new THREE.Vector3(g.x - 4, 0, g.z + 3));
-  return true;
+// Con los días la granja se repone: pollos si faltan gallinas, un cachorro por cada tres casas, un potro si sobra comida.
+function replenishAnimals(day) {
+  const A = CONFIG.animals;
+  let out = null;
+  if (day % 3 === 0 && countKind('gallina') < A.gallinas) new Animal('gallina', animalSpot('gallina', 2));
+  const dogsWanted = Math.min(A.maxPerros, 1 + Math.floor(World.homes.length / 3));
+  if (countKind('perro') < dogsWanted && chance(0.5)) {
+    const n = countKind('perro');
+    new Animal('perro', animalSpot('perro', n));
+    out = 'Nace un cachorro que ya corretea entre las casas';
+  }
+  const horses = countKind('caballo');
+  if (horses >= 2 && horses < A.maxCaballos && Economy.stock.grano >= A.foalMinFood && chance(A.foalChancePerDay)) {
+    new Animal('caballo', animalSpot('caballo', horses));
+    Economy.take('grano', 10);
+    out = 'Nace un potro en el prado de la granja';
+  }
+  if (out) HUD.log(out);
+  return out;
 }
 function serializeAnimals() {
   return animals.filter(a => !a.removed).map(a => ({ kind: a.kind, x: a.pos.x, z: a.pos.z, h: a.heading }));
@@ -3103,8 +3569,8 @@ const NAMES = ['Aldo', 'Beatriz', 'Clara', 'Diego', 'Elena', 'Fabián', 'Gema', 
   'Damián', 'Esther', 'Félix', 'Gonzalo', 'Irene', 'Leire', 'Mateo', 'Olalla', 'Pedro', 'Rocío', 'Sancho', 'Teresa', 'Unai'];
 const FEMALE = new Set(['Beatriz', 'Clara', 'Elena', 'Gema', 'Inés', 'Lucía', 'Nuria', 'Pilar', 'Sara', 'Úrsula', 'Ximena', 'Zoe', 'Carmen', 'Esther', 'Irene', 'Leire', 'Olalla', 'Rocío', 'Teresa']);
 const BUILDER_ROLES = new Set(['aldeano', 'agricultor', 'lenador', 'minero']);
-const WORK_HOURS = { agricultor: [0, 17], minero: [6, 15], lenador: [7, 16], comerciante: [8, 18], clerigo: [7, 20], aldeano: [8, 19], curandero: [7, 20], sabio: [8, 19], senor: [8, 19] };
-const HAT_BY_ROLE = { guardia: 'helm', clerigo: 'hat', curandero: 'hat', sabio: 'hat', viajero: 'brim', senor: 'crown' };
+const WORK_HOURS = { agricultor: [0, 17], minero: [6, 15], lenador: [7, 16], comerciante: [8, 18], clerigo: [7, 20], aldeano: [8, 19], curandero: [7, 20], sabio: [8, 19], senor: [8, 19], alcalde: [8, 19], pescador: [5, 14] };
+const HAT_BY_ROLE = { guardia: 'helm', clerigo: 'hat', curandero: 'hat', sabio: 'hat', viajero: 'brim', senor: 'crown', alcalde: 'hat', pescador: 'brim' };
 const socialCooldown = new Map();
 let agentSerial = 1;
 const usedNames = new Set();
@@ -3268,6 +3734,8 @@ class Agent extends Mover {
     this.carry = { res: null, amount: 0 };
     this.sleeping = false;
     this.sick = false;
+    // Peste: contagiado hasta una hora simulada, inmune un tiempo después; la severidad varía por persona.
+    this.infected = false; this.infectedUntil = 0; this.immuneUntil = 0; this.severity = 1;
     this.wakeOffset = rand(CONFIG.needs.wakeHour.min, CONFIG.needs.wakeHour.max) - 6;
     this.sleepOffset = rand(CONFIG.needs.sleepHour.min, CONFIG.needs.sleepHour.max) - 20;
     this.age = opts.age !== undefined ? opts.age : (role === 'nino' ? rand(3, 8) : rand(18, 48));
@@ -3333,9 +3801,14 @@ class Agent extends Mover {
   resourcePlan(res, mult, rateMul) {
     const A = World.anchors, P = CONFIG.economy.production, k = rateScale() * (rateMul || 1);
     if (res === 'grano') {
-      const yieldMul = CONFIG.calendar.foodYield[DayCycle.season] * Tech.foodMul() * Ruler.foodMul();
+      const yieldMul = CONFIG.calendar.foodYield[DayCycle.season] * Tech.foodMul() * Ruler.foodMul() * Exogenous.foodMul();
       const fieldMul = 1 + CONFIG.economy.fieldBonus * Math.max(0, World.fields.length - 2);
       return { node: 'granja', anchor: A.campos[this.field % A.campos.length], res, rate: P.grano * yieldMul * fieldMul * k, mult: mult * (0.4 + yieldMul * 0.6) };
+    }
+    if (res === 'pesca') {
+      // La pesca entra como comida en el cobertizo del muelle; en invierno rinde la mitad y en riada nada.
+      const m = (Weather.isWinter ? CONFIG.fishing.winterMul : 1) * Exogenous.fishMul();
+      return { node: 'lago', anchor: A.lago, res: 'grano', rate: P.pesca * k * m, mult: mult * (0.5 + m * 0.5) };
     }
     const tools = Tech.toolMul();
     if (res === 'madera') return { node: 'bosque', anchor: A.bosque, res, rate: P.madera * k * tools, mult };
@@ -3361,6 +3834,14 @@ class Agent extends Mover {
       case 'agricultor': return this.resourcePlan('grano', 1);
       case 'minero': return this.resourcePlan(this.miningTarget(), 1);
       case 'lenador': return this.resourcePlan('madera', 1);
+      case 'pescador': return this.resourcePlan('pesca', 1);
+      case 'alcalde': {
+        const h = DayCycle.hour;
+        if (h >= 12 && h < 13.5) return { node: 'plaza', anchor: null, res: null, rate: 0, mult: 1.2 };
+        return World.ayuntamiento
+          ? { node: World.ayuntamiento.travelNode, anchor: World.ayuntamiento.anchor, res: null, rate: 0, mult: 1 }
+          : { node: 'plaza', anchor: A.pozo, res: null, rate: 0, mult: 1 };
+      }
       case 'sabio': return World.escuela
         ? { node: World.escuela.travelNode, anchor: World.escuela.anchor, res: null, rate: 0, mult: 1.1 }
         : { node: 'iglesia', anchor: A.iglesia, res: null, rate: 0, mult: 0.9 };
@@ -3371,9 +3852,12 @@ class Agent extends Mover {
       }
       case 'comerciante': return { node: 'mercado', anchor: this.stall ? this.stall.front : null, res: null, rate: 0, mult: Events.marketActive ? 1.6 : 1 };
       case 'clerigo': return { node: 'iglesia', anchor: A.iglesia, res: null, rate: 0, mult: 1 };
-      case 'curandero': return World.botica
-        ? { node: World.botica.travelNode, anchor: World.botica.anchor, res: null, rate: 0, mult: 1.1 }
-        : { node: 'iglesia', anchor: A.iglesia, res: null, rate: 0, mult: 0.8 };
+      case 'curandero': {
+        const clinic = World.hospital || World.botica;
+        return clinic
+          ? { node: clinic.travelNode, anchor: clinic.anchor, res: null, rate: 0, mult: 1.1 }
+          : { node: 'iglesia', anchor: A.iglesia, res: null, rate: 0, mult: 0.8 };
+      }
       case 'aldeano': {
         // Oficio secundario: el aldeano ocioso echa una mano con el recurso que más escasea.
         const s = Economy.stock, L = CONFIG.secondary.lowStock;
@@ -3401,7 +3885,8 @@ class Agent extends Mover {
       // Los guardias comen en la taberna y duermen en el castillo; el resto del tiempo patrullan.
       if (n.hunger > CONFIG.needs.hungerEatAt && Economy.stock.grano >= 1) return this.choose({ act: 'comer', node: 'taberna', anchor: World.anchors.taberna, stay: rand(8, 12) });
       if (night && n.energy < 0.45) return this.choose({ act: 'dormir', node: 'castillo', stay: 99999 });
-      if (this.sick && World.botica) return this.choose({ act: 'curarse', node: World.botica.travelNode, anchor: World.botica.anchor, stay: rand(20, 30) });
+      const clinic = World.hospital || World.botica;
+      if (this.sick && clinic) return this.choose({ act: 'curarse', node: clinic.travelNode, anchor: clinic.anchor, stay: rand(20, 30) });
       this.circuitIdx = (this.circuitIdx + 1) % this.circuit.length;
       return this.choose({ act: 'patrullar', node: this.circuit[this.circuitIdx], stay: rand(4, 9) });
     }
@@ -3409,12 +3894,18 @@ class Agent extends Mover {
     options.push({ act: 'dormir', node: this.home, stay: 99999, score: (night ? 1.6 : -0.9) + (1 - n.energy) * 1.7 });
     const food = Economy.stock.grano;
     if (n.hunger > CONFIG.needs.hungerEatAt) {
-      const tavern = h >= 16 && h < 23 && Economy.stock.monedas >= CONFIG.economy.tavernPrice && chance(0.5);
+      const tavern = h >= 16 && h < 23 && Economy.stock.monedas >= CONFIG.economy.tavernPrice && !this.infected && chance(0.5);
       options.push({ act: 'comer', node: tavern ? 'taberna' : this.home, anchor: tavern ? World.anchors.taberna : null, stay: rand(8, 14), score: (n.hunger - 0.3) * 2.4 - (food >= 1 ? 0 : 1.6) });
     }
     if (this.sick) {
-      const b = World.botica;
+      const b = World.hospital || World.botica;
       options.push({ act: 'curarse', node: b ? b.travelNode : this.home, anchor: b ? b.anchor : null, stay: rand(20, 32), score: (1 - n.health) * 2.6 + 0.4 });
+    }
+    // Cuarentena: el contagiado guarda casa aunque aún se tenga en pie.
+    // Cuarentena: el contagiado guarda casa, pero sale a comer cuando tiene hambre y hay comida.
+    if (this.infected && Ruler.policy === 'cuarentena') {
+      const hungry = n.hunger > CONFIG.needs.hungerEatAt && food >= 1;
+      options.push({ act: 'curarse', node: this.home, stay: rand(30, 50), score: hungry ? 0 : 3.2 });
     }
     if (this.carry.amount >= CONFIG.economy.carryAmount || (this.carry.amount > 0.5 && !this.inWorkHours())) {
       const depot = this.depotFor(this.carry.res);
@@ -3442,13 +3933,13 @@ class Agent extends Mover {
   }
   // El grano se guarda en la granja, el mineral y la piedra en el almacén, la madera en el más cercano.
   depotFor(res) {
-    if (res === 'grano') return 'granja';
+    if (res === 'grano') return this.role === 'pescador' ? 'lago' : 'granja';
     if (res === 'mineral' || res === 'piedra') return 'almacen';
     return Graph.routeDist(this.node, 'granja') < Graph.routeDist(this.node, 'almacen') ? 'granja' : 'almacen';
   }
   choose(o) {
     this.activity = o.act;
-    if (o.act === 'trabajar' && this.role === 'senor') this.activity = 'gobernar';
+    if (o.act === 'trabajar' && (this.role === 'senor' || this.role === 'alcalde')) this.activity = 'gobernar';
     if (o.act === 'trabajar' && this.role === 'sabio') this.activity = 'estudiar';
     this.workRes = o.plan ? o.plan.res : null;
     this.workRate = o.plan ? o.plan.rate : 0;
@@ -3600,6 +4091,7 @@ class Agent extends Mover {
   }
   remove() {
     this.removed = true;
+    usedNames.delete(this.name);
     AgentRenderer.release(this.slot);
     this.slot = -1;
     for (const a of agents) if (a.follow === this) a.follow = null;
@@ -3665,6 +4157,12 @@ class Agent extends Mover {
       if (Weather.isWet) loss += H.rainLossPerDay;
     }
     if (n.hunger > 0.9) loss += H.hungerLossPerDay;
+    if (this.infected) {
+      if (Sim.time >= this.infectedUntil) {
+        this.infected = false;
+        this.immuneUntil = Sim.time + CONFIG.exogenous.epidemia.immuneDays * CONFIG.dayLengthSeconds;
+      } else loss += CONFIG.exogenous.epidemia.healthLossPerDay * this.severity * Exogenous.illnessMul();
+    }
     if (loss > 0) n.health -= loss * perSec;
     else {
       let gain = this.sleeping ? H.sleepRecoverPerDay : H.recoverPerDay;
@@ -3676,7 +4174,7 @@ class Agent extends Mover {
     if (this.sick && !wasSick && this.isResident) HUD.log(`${this.label} cae ${this.isFemale ? 'enferma' : 'enfermo'}`);
     if (!this.sick && wasSick && this.isResident) HUD.log(`${this.name} se recupera`);
     this.speed = this.baseSpeed * (this.sick ? H.sickSpeed : 1);
-    if (n.health <= H.deathBelow) { this.die('de enfermedad'); return; }
+    if (n.health <= H.deathBelow) { this.die(this.infected ? 'de la peste' : 'de enfermedad'); return; }
     if (n.hunger >= 1) this.starving += dt; else this.starving = Math.max(0, this.starving - dt * 2);
     const day = CONFIG.dayLengthSeconds, M = CONFIG.mortality;
     if (this.starving > M.starveDaysDeath * day) { this.die('de hambre'); return; }
@@ -3709,7 +4207,9 @@ class Agent extends Mover {
     } else if (this.activity === 'curarse') {
       // En casa guarda cama hasta recobrar fuerzas; en la botica espera al curandero.
       if (this.sleeping) {
-        if (this.needs.health >= CONFIG.health.restUntil || (this.needs.hunger > 1.05 && Economy.stock.grano > 0)) this.wake();
+        // El contagiado en cuarentena sigue en casa aunque se sienta bien; solo el hambre lo saca.
+        const cured = this.needs.health >= CONFIG.health.restUntil && !(this.infected && Ruler.policy === 'cuarentena');
+        if (cured || (this.needs.hunger > (this.infected ? 0.8 : 1.05) && Economy.stock.grano > 0)) this.wake();
       } else if (!this.sick) this.timer = 0;
     } else if (this.activity === 'dormir') {
       if (this.sleeping) {
@@ -3816,7 +4316,10 @@ class Agent extends Mover {
     this.timer = 0;
     this.activity = 'idle';
   }
-  becomeRuler() { this.setRole('senor', 'castillo'); }
+  becomeRuler() {
+    const role = Ruler.rulerRole();
+    this.setRole(role, role === 'senor' ? 'castillo' : (this.home === 'castillo' ? Growth.assignHome() : this.home));
+  }
   becomeCommoner() { this.setRole('aldeano', Growth.assignHome()); }
   // Un niño que crece toma el rol que más necesita el pueblo y deja de seguir a sus padres.
   growUp() {
@@ -3835,6 +4338,7 @@ class Agent extends Mover {
     if (parent) this.node = parent.node;
     if (role === 'comerciante') this.stall = World.stalls[agents.filter(a => a.role === 'comerciante').length % World.stalls.length];
     if (role === 'agricultor') this.field = agents.filter(a => a.role === 'agricultor').length;
+    if (role === 'guardia') { this.circuit = GUARD_CIRCUIT; this.circuitIdx = 0; this.home = 'castillo'; }
     HUD.log(`${this.name} ya es ${this.isFemale ? 'adulta' : 'adulto'} y se hace ${this.roleWord}`);
   }
   serialize() {
@@ -3844,7 +4348,8 @@ class Agent extends Mover {
       childDays: this.childDays, partnerId: this.partnerId, followId: this.follow ? this.follow.id : null,
       followSide: this.followSide, field: this.field, stall: this.stall ? World.stalls.indexOf(this.stall) : -1,
       circuitIdx: this.circuitIdx, exitNode: this.exitNode, plan: this.plan, sleeping: this.sleeping,
-      wakeOffset: this.wakeOffset, sleepOffset: this.sleepOffset
+      wakeOffset: this.wakeOffset, sleepOffset: this.sleepOffset,
+      infected: this.infected, infectedUntil: this.infectedUntil, immuneUntil: this.immuneUntil, severity: this.severity
     };
   }
 }
@@ -3908,6 +4413,7 @@ function spawnPopulation() {
   for (let i = 0; i < cfg.comerciante; i++) new Agent('comerciante', homes[(i + 1) % 4], { stall: World.stalls[i % World.stalls.length] });
   for (let i = 0; i < cfg.minero; i++) new Agent('minero', homes[(i + 2) % 4]);
   for (let i = 0; i < cfg.lenador; i++) new Agent('lenador', homes[(i + 3) % 4]);
+  for (let i = 0; i < (cfg.pescador || 0); i++) new Agent('pescador', homes[i % 4]);
   const villagers = [];
   for (let i = 0; i < cfg.aldeano; i++) villagers.push(new Agent('aldeano', homes[i % 4]));
   for (let i = 0; i < CONFIG.followers.parejas && i * 2 + 1 < villagers.length; i++) {
@@ -3947,6 +4453,7 @@ function restorePopulation(list) {
     a.exitNode = d.exitNode;
     a.plan = d.plan;
     a.wakeOffset = d.wakeOffset; a.sleepOffset = d.sleepOffset;
+    a.infected = !!d.infected; a.infectedUntil = d.infectedUntil || 0; a.immuneUntil = d.immuneUntil || 0; a.severity = d.severity || 1;
     a.timer = rand(0.5, 3);
     byId.set(a.id, a);
     if (d.role === 'viajero' && (!a.exitNode || !a.plan)) a.remove();
@@ -4044,6 +4551,8 @@ function makeCaravana() {
       if (r.bought.length) parts.push(`vende ${r.bought.join(', ')}`);
       if (!parts.length) HUD.log('La caravana no encuentra nada que comerciar');
       else HUD.log(`La caravana ${parts.join(' y ')}; el pueblo ${r.net >= 0 ? 'gana' : 'gasta'} ${Math.abs(Math.round(r.net))} monedas`);
+      // Con la mercancía llegan noticias, semillas, animales, gentes y a veces fiebres.
+      Exogenous.onCaravan();
     },
     end() {
       if (this.cartPhase !== 'done') Render.scene.remove(World.cart);
@@ -4247,7 +4756,11 @@ const Events = {
       this.timer -= dt;
       if (this.timer <= 0) {
         // Los lobos solo salen de noche; el incendio necesita alguna casa habitada.
+        const q = Ruler.policy === 'cuarentena';
         const bias = {
+          feria: q ? 0 : 1 + Exogenous.customs.length * 0.4,
+          misa: q ? 0 : 1,
+          mercado: q ? 0 : 1,
           lobos: DayCycle.isNight() ? 1 : 0,
           incendio: World.homes.length ? 1 : 0,
           expedicion: Tech.has('cartografia') && Deposits.undiscovered().length > 0 && !DayCycle.isNight() ? 1 : 0
@@ -4294,6 +4807,8 @@ const Growth = {
   residents() { let n = 0; for (const a of agents) if (a.isResident && !a.removed) n++; return n; },
   housingCapacity() { return World.homes.length * CONFIG.growth.housingPerCottage; },
   countType(type) { let n = 0; for (const c of World.constructions) if (c.type === type) n++; return n; },
+  // Cada etapa permite más casas, campos y graneros.
+  maxOf(type) { const d = CONFIG.construction.types[type]; return d.max + (d.perEra || 0) * Eras.index; },
   builderCount() { let n = 0; for (const a of agents) if (a.activity === 'construir' && !a.removed) n++; return n; },
   sickCount() { let n = 0; for (const a of agents) if (a.sick && a.isResident && !a.removed) n++; return n; },
   // Muestra diaria para las gráficas del panel.
@@ -4306,6 +4821,7 @@ const Growth = {
     this.deathsToday++;
     addGrave();
     HUD.log(`${agent.label} muere ${cause}`);
+    Exogenous.onDeath(agent, cause);
     Ruler.onDeath(agent);
   },
   update(dt) {
@@ -4322,16 +4838,20 @@ const Growth = {
   chooseNeed() {
     const types = CONFIG.construction.types;
     const res = this.residents(), cap = this.housingCapacity();
-    const built = (t) => this.countType(t) >= types[t].max;
+    const built = (t) => this.countType(t) >= this.maxOf(t);
     if ((Economy.stock.grano < CONFIG.construction.foodTrigger || Economy.foodTrend() < -8) && !built('campo')) return 'campo';
     if (res / cap >= CONFIG.construction.housingTrigger - (Ruler.policy === 'expansion' ? 0.1 : 0) && !built('casa')) return 'casa';
     const sickRatio = res > 0 ? this.sickCount() / res : 0;
     if ((res >= CONFIG.construction.boticaPopulation || sickRatio >= CONFIG.construction.boticaSickRatio) && !built('botica')) return 'botica';
-    for (const t of ['escuela', 'molino', 'herreria', 'torre']) {
+    // Edificios de saber y de etapa: tras una peste el hospital pasa delante de todo.
+    const order = ['escuela', 'molino', 'herreria', 'torre', 'hospital', 'ayuntamiento', 'universidad', 'fabrica'];
+    if (Exogenous.epidemicsSeen > 0) order.splice(order.indexOf('hospital'), 1), order.unshift('hospital');
+    for (const t of order) {
       const def = types[t];
       if (built(t) || !Tech.has(def.tech)) continue;
       if (def.minResidents && res < def.minResidents) continue;
-      if (t === 'herreria' && Economy.stock.hierro < def.cost.hierro) continue;
+      if ((def.era || 0) > Eras.index) continue;
+      if (def.cost.hierro && Economy.stock.hierro < def.cost.hierro) continue;
       return t;
     }
     if (Economy.stock.grano > Economy.capacity('grano') * CONFIG.construction.storageTrigger && !built('granero')) return 'granero';
@@ -4394,8 +4914,11 @@ const Growth = {
     for (const a of agents) if (!a.removed) counts[a.role] = (counts[a.role] || 0) + 1;
     if (World.botica && !(counts.curandero > 0)) return 'curandero';
     if (World.escuela && !(counts.sabio > 0)) return 'sabio';
+    if (World.universidad && (counts.sabio || 0) < 2) return 'sabio';
+    if (World.hospital && (counts.curandero || 0) < 2) return 'curandero';
     const s = Economy.stock;
     const weights = {
+      pescador: World.anchors.lago && (counts.pescador || 0) < 3 ? 0.7 + (s.grano < 60 ? 1.3 : 0) : 0,
       agricultor: 1.2 + (s.grano < 60 ? 2.5 : 0) + this.residents() / 10,
       lenador: 1 + (s.madera < 40 ? 2 : 0),
       minero: 0.9 + (s.mineral < 20 ? 1.2 : 0) + (s.piedra < 25 ? 0.8 : 0) + World.deposits.length * 0.6,
@@ -4414,19 +4937,24 @@ const Growth = {
     }
     return best ? best.node : 'casa1';
   },
-  tryImmigration() {
-    const res = this.residents();
-    if (res >= this.housingCapacity() || res >= CONFIG.growth.maxPopulation || !AgentRenderer.hasRoom(4)) return;
-    if (Economy.foodPerCapita(res) < CONFIG.growth.immigrationFoodPerCapita) return;
-    const role = this.neededRole();
+  // Un colono nuevo con su oficio, ya asignado a una casa; lo usan la inmigración y las caravanas.
+  spawnImmigrant(role, entry) {
+    if (!AgentRenderer.hasRoom(4)) return null;
     const home = this.assignHome();
-    const entry = pick(BORDER_NODES);
     const a = new Agent(role, home, { spawnAt: entry });
     if (role === 'comerciante') a.stall = World.stalls[agents.filter(x => x.role === 'comerciante').length % World.stalls.length];
     if (role === 'agricultor') a.field = agents.filter(x => x.role === 'agricultor').length;
     if (role === 'guardia') { a.circuit = agents.find(x => x.role === 'guardia' && x !== a && x.circuit)?.circuit || ['castillo', 'plaza', 'mercado', 'plaza']; a.home = 'castillo'; }
     a.needs.hunger = 0.5;
-    HUD.log(`Llega ${a.name} por el camino ${Graph.node(entry).label} y se instala como ${a.roleWord}`);
+    return a;
+  },
+  tryImmigration() {
+    const res = this.residents();
+    if (res >= this.housingCapacity() || res >= Eras.maxPopulation() || !AgentRenderer.hasRoom(4)) return;
+    if (Economy.foodPerCapita(res) < CONFIG.growth.immigrationFoodPerCapita) return;
+    const entry = pick(BORDER_NODES);
+    const a = this.spawnImmigrant(this.neededRole(), entry);
+    if (a) HUD.log(`Llega ${a.name} por el camino ${Graph.node(entry).label} y se instala como ${a.roleWord}`);
   },
   formCouples() {
     const free = agents.filter(a => a.isResident && a.isAdult && !a.follow && a.partnerId === null && !a.removed && a.role !== 'clerigo');
@@ -4464,7 +4992,7 @@ const Growth = {
     this.buildsToday = 0;
   },
   births(res) {
-    if (res >= CONFIG.growth.maxPopulation || res >= this.housingCapacity() || !AgentRenderer.hasRoom(4)) return;
+    if (res >= Eras.maxPopulation() || res >= this.housingCapacity() || !AgentRenderer.hasRoom(4)) return;
     if (Economy.foodPerCapita(res) < CONFIG.growth.birthFoodPerCapita) return;
     const seen = new Set();
     for (const a of agents) {
@@ -4505,16 +5033,17 @@ const Growth = {
 
 // Saberes: el conocimiento lo generan clérigos, sabios y la escuela; cada avance desbloquea algo concreto.
 const Tech = {
-  points: 0, unlocked: new Set(), current: null,
+  points: 0, unlocked: new Set(), current: null, waiting: null, waitLog: -999,
   has(id) { return this.unlocked.has(id); },
   available() {
     return CONFIG.tech.tree.filter(t => !this.unlocked.has(t.id)
       && t.requires.every(r => this.unlocked.has(r))
       && (!t.needsResource || World.deposits.some(d => d.kind === t.needsResource)));
   },
+  // Respuesta al cambio: tras una sequía o una peste el pueblo estudia primero lo que le habría salvado.
   pickNext() {
     const list = this.available();
-    this.current = list.length ? list[0] : null;
+    this.current = Exogenous.preferredTech(list) || (list.length ? list[0] : null);
   },
   rate() {
     const T = CONFIG.tech;
@@ -4527,15 +5056,29 @@ const Tech = {
     let r = T.pointsPerDayBase + clerigos * T.pointsPerClerigo + sabios * T.pointsPerSabio;
     if (World.escuela) r *= T.schoolMul;
     if (Ruler.policy === 'saber') r *= T.policyMul;
-    return r;
+    if (this.has('imprenta')) r *= 1.5;
+    if (World.universidad) r *= 1.4;
+    return r * Eras.techMul();
   },
   update(dt) {
     if (!this.current) this.pickNext();
     if (!this.current) return;
     this.points += this.rate() * dt / CONFIG.dayLengthSeconds;
     if (this.points >= this.current.cost) {
-      this.points -= this.current.cost;
-      this.unlock(this.current);
+      // Los avances cuestan materiales además de estudio: sin ellos el saber espera en el almacén.
+      const t = this.current;
+      if (t.res && !Economy.has(t.res)) {
+        this.waiting = t.id;
+        if (Sim.time - this.waitLog > 200) {
+          this.waitLog = Sim.time;
+          HUD.log(`Falta ${Economy.missing(t.res).map(r => RESOURCE_LABELS[r].toLowerCase()).join(' y ')} para completar ${t.label.toLowerCase()}`);
+        }
+        return;
+      }
+      if (t.res) Economy.spend(t.res);
+      this.waiting = null;
+      this.points -= t.cost;
+      this.unlock(t);
       this.pickNext();
     }
   },
@@ -4545,9 +5088,9 @@ const Tech = {
     HUD.log(`El pueblo descubre ${t.label.toLowerCase()}: ${t.desc}`);
   },
   progress() { return this.current ? clamp(this.points / this.current.cost, 0, 1) : 0; },
-  foodMul() { return (this.has('arado') ? 1.3 : 1) * (World.buildings.molino ? 1.2 : 1); },
+  foodMul() { return (this.has('arado') ? 1.3 : 1) * (World.buildings.molino ? 1.2 : 1) * (this.has('acequias') ? 1.1 : 1); },
   toolMul() { return World.buildings.herreria ? 1.25 : 1; },
-  healMul() { return this.has('medicina') ? 1.5 : 1; },
+  healMul() { return (this.has('medicina') ? 1.5 : 1) * (World.hospital ? 1.6 : 1); },
   serialize() { return { points: this.points, unlocked: Array.from(this.unlocked), current: this.current ? this.current.id : null }; },
   restore(data) {
     this.points = 0; this.unlocked = new Set(); this.current = null;
@@ -4564,7 +5107,9 @@ const Tech = {
 // y puede ser depuesto por una revuelta. Al morir, le sucede su heredero.
 const Ruler = {
   agent: null, policy: null, policyDaysLeft: 0, popularity: CONFIG.ruler.popularity.start,
-  revoltDays: 0, taxHoliday: 0, deposed: 0,
+  revoltDays: 0, taxHoliday: 0, deposed: 0, council: false, electionDays: 0,
+  rulerRole() { return this.council ? 'alcalde' : 'senor'; },
+  titleFor(a) { return this.council ? (a && a.isFemale ? 'Alcaldesa' : 'Alcalde') : (a && a.isFemale ? 'Señora' : 'Señor'); },
   init() {
     const home = 'castillo';
     const a = new Agent('senor', home, { age: rand(32, 48) });
@@ -4574,7 +5119,7 @@ const Ruler = {
   get name() { return this.agent && !this.agent.removed ? this.agent.name : 'nadie'; },
   taxMul() {
     if (this.taxHoliday > 0) return 0;
-    return this.policy === 'austeridad' ? 2 : 1;
+    return (this.policy === 'austeridad' ? 2 : 1) * (this.council ? CONFIG.ruler.councilTaxMul : 1);
   },
   planIntervalMul() { return this.policy === 'expansion' ? 0.5 : 1; },
   foodMul() { return this.policy === 'cosecha' ? 1.2 : 1; },
@@ -4583,6 +5128,8 @@ const Ruler = {
     const res = Growth.residents();
     const food = Economy.foodPerCapita(res);
     const housing = res / Growth.housingCapacity();
+    if (Exogenous.epidemic) return 'cuarentena';
+    if (Exogenous.drought) return 'cosecha';
     if (food < 2.2) return 'cosecha';
     if (housing > 0.85) return 'expansion';
     if (Growth.dangerCount > 0 && chance(0.6)) return 'defensa';
@@ -4591,6 +5138,7 @@ const Ruler = {
     return pick(['saber', 'saber', 'fiesta', 'cosecha']);
   },
   decree(policy) {
+    if (policy === 'fiesta' && Exogenous.epidemic) policy = 'cuarentena';
     this.policy = policy;
     this.policyDaysLeft = CONFIG.ruler.decreeIntervalDays;
     if (policy === 'fiesta') {
@@ -4617,11 +5165,51 @@ const Ruler = {
     Growth.dangerCount = Math.max(0, Growth.dangerCount - 1);
     if (this.policyDaysLeft > 0) this.policyDaysLeft--;
     if (this.policyDaysLeft <= 0) this.decree(this.choosePolicy());
-    if (this.popularity < CONFIG.ruler.revoltBelow) {
+    if (!this.council && World.ayuntamiento) this.formCouncil();
+    if (this.council) {
+      this.electionDays--;
+      if (this.electionDays <= 0 || this.popularity < CONFIG.ruler.snapElectionBelow) this.election();
+    } else if (this.popularity < CONFIG.ruler.revoltBelow) {
       this.revoltDays++;
       if (!Events.current && this.revoltDays === 1) Events.start('revuelta');
       if (this.revoltDays >= CONFIG.ruler.deposeDays) this.depose();
     } else this.revoltDays = 0;
+  },
+  // Con ayuntamiento el señorío se convierte en concejo: el alcalde sale de elecciones periódicas, no de la sangre.
+  formCouncil() {
+    this.council = true;
+    this.electionDays = CONFIG.ruler.electionDays;
+    this.revoltDays = 0;
+    const a = this.agent;
+    if (a && !a.removed) {
+      a.setRole('alcalde', Growth.assignHome());
+      HUD.log(`Se constituye el concejo de Valdecerro: ${a.name} deja el castillo y gobierna como ${a.isFemale ? 'alcaldesa' : 'alcalde'} hasta las elecciones`);
+    } else HUD.log('Se constituye el concejo de Valdecerro: los vecinos elegirán alcalde');
+  },
+  affinityOf(id) {
+    let s = 0;
+    for (const [k, v] of Relations.map) if (Math.floor(k / 100000) === id || k % 100000 === id) s += v;
+    return s;
+  },
+  election() {
+    this.electionDays = CONFIG.ruler.electionDays;
+    const c = this.candidates();
+    const cur = this.agent && !this.agent.removed ? this.agent : null;
+    if (cur) c.push(cur);
+    if (!c.length) return;
+    const score = (a) => a.needs.mood * 2 + Math.min(1, this.affinityOf(a.id) / 20) + (a === cur ? this.popularity * 0.6 : 0);
+    const win = c.reduce((b, a) => score(a) > score(b) ? a : b, c[0]);
+    if (win === cur) {
+      this.popularity = Math.max(this.popularity, 0.5);
+      HUD.log(`${cur.name} revalida la alcaldía en las elecciones del concejo`);
+      return;
+    }
+    if (cur) cur.becomeCommoner();
+    win.becomeRuler();
+    this.agent = win;
+    this.popularity = CONFIG.ruler.popularity.start;
+    this.revoltDays = 0;
+    HUD.log(`Los vecinos eligen ${win.isFemale ? 'alcaldesa' : 'alcalde'} a ${win.name}`);
   },
   onRevoltEnd() {
     this.popularity = clamp(this.popularity + CONFIG.ruler.popularity.revoltGain, 0, 1);
@@ -4630,10 +5218,11 @@ const Ruler = {
     this.policyDaysLeft = CONFIG.ruler.decreeIntervalDays;
   },
   candidates() {
-    return agents.filter(a => a.isResident && a.isAdult && !a.removed && a.role !== 'senor' && a.role !== 'nino' && a.role !== 'viajero' && !a.follow);
+    return agents.filter(a => a.isResident && a.isAdult && !a.removed && a.role !== 'senor' && a.role !== 'alcalde' && a.role !== 'nino' && a.role !== 'viajero' && !a.follow);
   },
   // Sucesión: pareja o hijo del señor, y si no, el vecino de mejor ánimo.
   succession(dead) {
+    if (this.council) { this.agent = null; this.election(); return; }
     let heir = null;
     if (dead) {
       if (dead.partnerId !== null) heir = agents.find(a => a.id === dead.partnerId && !a.removed) || null;
@@ -4652,6 +5241,7 @@ const Ruler = {
     HUD.log(`${heir.name} hereda el señorío de Valdecerro`);
   },
   depose() {
+    if (this.council) { this.election(); return; }
     const old = this.agent;
     const c = this.candidates();
     if (!c.length) return;
@@ -4674,14 +5264,292 @@ const Ruler = {
     if ((!this.agent || this.agent.removed) && AgentRenderer.hasRoom(1)) this.succession(null);
   },
   serialize() {
-    return { agentId: this.agent ? this.agent.id : null, policy: this.policy, policyDaysLeft: this.policyDaysLeft, popularity: this.popularity, revoltDays: this.revoltDays, taxHoliday: this.taxHoliday, deposed: this.deposed };
+    return { agentId: this.agent ? this.agent.id : null, policy: this.policy, policyDaysLeft: this.policyDaysLeft, popularity: this.popularity, revoltDays: this.revoltDays, taxHoliday: this.taxHoliday, deposed: this.deposed, council: this.council, electionDays: this.electionDays };
   },
   restore(data) {
     if (!data) { this.ensure(); return; }
     this.agent = agents.find(a => a.id === data.agentId && !a.removed) || null;
     this.policy = data.policy; this.policyDaysLeft = data.policyDaysLeft; this.popularity = data.popularity;
     this.revoltDays = data.revoltDays || 0; this.taxHoliday = data.taxHoliday || 0; this.deposed = data.deposed || 0;
+    this.council = !!data.council; this.electionDays = data.electionDays || 0;
     this.ensure();
+  }
+};
+
+// ==================== exogenos.js
+
+// Agentes exógenos: lo que le pasa al pueblo desde fuera de sus reglas. Peste que se contagia por cercanía,
+// sequía de verano, riada con tormenta, terremoto, y lo que traen las caravanas: saber, semillas, caballos, colonos y costumbres.
+const Exogenous = {
+  epidemic: null, drought: null, flood: null,
+  epidemicsSeen: 0, droughtsSeen: 0, floodsSeen: 0, quakesSeen: 0,
+  lastFloodDay: -99, shake: 0, seeds: 0, customs: [], dryness: 0, spreadAcc: 0,
+  // ---- multiplicadores que consultan los demás sistemas
+  foodMul() {
+    const S = CONFIG.exogenous.sequia;
+    let m = 1 + this.seeds * CONFIG.exogenous.intercambio.seedBonus;
+    if (this.drought) m *= Math.min(1, S.yieldMul * (Tech.has('acequias') ? S.acequiasMul : 1));
+    return m;
+  },
+  fishMul() { return this.flood ? 0 : 1; },
+  illnessMul() {
+    const E = CONFIG.exogenous.epidemia;
+    return (World.hospital ? E.hospitalMul : 1) * (Tech.has('medicina') ? E.medicineMul : 1);
+  },
+  spreadMul() { return Ruler.policy === 'cuarentena' ? CONFIG.exogenous.epidemia.quarantineSpreadMul : 1; },
+  infectedCount() { let n = 0; for (const a of agents) if (a.infected && !a.removed) n++; return n; },
+  // ---- peste
+  infect(a) {
+    if (a.removed || a.infected || !a.isResident || a.immuneUntil > Sim.time) return false;
+    const E = CONFIG.exogenous.epidemia;
+    a.infected = true;
+    a.severity = rand(E.severity[0], E.severity[1]);
+    a.infectedUntil = Sim.time + E.sickDays * CONFIG.dayLengthSeconds;
+    if (this.epidemic) this.epidemic.total++;
+    return true;
+  },
+  startEpidemic(source) {
+    const E = CONFIG.exogenous.epidemia;
+    if (this.epidemic || Growth.residents() < E.minResidents) return false;
+    this.epidemic = { startDay: DayCycle.day, total: 0, deaths: 0, clearDays: 0 };
+    this.epidemicsSeen++;
+    const cands = agents.filter(a => a.isResident && !a.removed && a.visible && a.immuneUntil <= Sim.time);
+    for (let i = 0; i < E.initialCases && cands.length; i++) {
+      const a = cands.splice(Math.floor(rng() * cands.length), 1)[0];
+      this.infect(a);
+    }
+    HUD.log(source === 'caravana' ? 'La caravana trae una fiebre desconocida: se declara la peste en Valdecerro' : 'Una fiebre salta de casa en casa: se declara la peste en Valdecerro');
+    if (Ruler.agent && !Ruler.agent.removed) Ruler.decree('cuarentena');
+    return true;
+  },
+  endEpidemic() {
+    const e = this.epidemic;
+    this.epidemic = null;
+    const days = DayCycle.day - e.startDay;
+    HUD.log(`La peste remite tras ${days} día${days === 1 ? '' : 's'}: ${e.total} contagiados y ${e.deaths} muerto${e.deaths === 1 ? '' : 's'}`);
+    if (Ruler.policy === 'cuarentena') Ruler.decree('fiesta');
+  },
+  spread(seconds) {
+    const E = CONFIG.exogenous.epidemia;
+    const p = E.spreadPerSecond * seconds * this.spreadMul();
+    const r2 = E.spreadRadius * E.spreadRadius;
+    for (const a of agents) {
+      if (!a.infected || a.removed || !a.visible || a.sleeping) continue;
+      for (const b of agents) {
+        if (b === a || b.infected || b.removed || !b.visible || b.sleeping || !b.isResident || b.immuneUntil > Sim.time) continue;
+        if (a.pos.distanceToSquared(b.pos) > r2) continue;
+        if (chance(p)) this.infect(b);
+      }
+    }
+  },
+  onRecovered() {},
+  onDeath(agent) {
+    if (this.epidemic && agent.infected) this.epidemic.deaths++;
+  },
+  // ---- sequía, riada y terremoto
+  startDrought() {
+    const S = CONFIG.exogenous.sequia;
+    this.drought = { daysLeft: Math.round(rand(S.minDays, S.maxDays)) };
+    this.droughtsSeen++;
+    HUD.log(`El calor agosta los campos: empieza una sequía${Tech.has('acequias') ? ', pero las acequias salvan parte de la cosecha' : ''}`);
+    if (Ruler.agent && !Ruler.agent.removed && Ruler.policy !== 'cuarentena') Ruler.decree('cosecha');
+  },
+  startFlood() {
+    const F = CONFIG.exogenous.riada;
+    this.flood = { t: 0, duration: F.duration };
+    this.floodsSeen++;
+    this.lastFloodDay = DayCycle.day;
+    Water.riseTarget = CONFIG.water.floodRise;
+    const lost = Economy.take('grano', Economy.stock.grano * F.cropLoss);
+    const wood = Economy.take('madera', F.woodDamage);
+    for (const a of agents) if (a.isResident && !a.removed) a.needs.mood = Math.max(0, a.needs.mood - F.moodLoss);
+    HUD.log(`El arroyo se desborda: la riada anega los campos bajos, se pierden ${Math.round(lost)} de comida y ${Math.round(wood)} de madera en reparos`);
+  },
+  endFlood() {
+    this.flood = null;
+    Water.riseTarget = 0;
+    HUD.log('Bajan las aguas: el pueblo vuelve a la orilla tras la riada');
+  },
+  doQuake() {
+    const Q = CONFIG.exogenous.terremoto;
+    this.shake = Q.shakeSeconds;
+    this.quakesSeen++;
+    const stone = Economy.take('piedra', Q.repair.piedra), wood = Economy.take('madera', Q.repair.madera);
+    const cands = agents.filter(a => a.isResident && !a.removed);
+    let hurt = 0;
+    for (let i = 0; i < Q.injuries && cands.length; i++) {
+      const a = cands.splice(Math.floor(rng() * cands.length), 1)[0];
+      a.needs.health = Math.max(0.05, a.needs.health - Q.injuryHit);
+      hurt++;
+    }
+    for (const a of agents) if (a.isResident && !a.removed) a.needs.mood = Math.max(0, a.needs.mood - Q.moodLoss);
+    HUD.log(`Tiembla la tierra en Valdecerro: ${hurt} herido${hurt === 1 ? '' : 's'} y grietas que cuestan ${Math.round(stone)} de piedra y ${Math.round(wood)} de madera`);
+  },
+  // ---- intercambio cultural con la caravana
+  onCaravan() {
+    const E = CONFIG.exogenous.epidemia, I = CONFIG.exogenous.intercambio;
+    if (chance(E.caravanChance)) this.startEpidemic('caravana');
+    if (chance(I.chancePerCaravan)) this.exchange();
+  },
+  exchange() {
+    const I = CONFIG.exogenous.intercambio;
+    const bias = {
+      saber: Tech.current ? 1 : 0,
+      semillas: this.seeds < I.maxSeeds ? 1 : 0,
+      caballos: countKind('caballo') < CONFIG.animals.maxCaballos && Economy.stock.grano >= I.horsePrice + 20 ? 1 : 0,
+      colono: Growth.residents() < Growth.housingCapacity() && AgentRenderer.hasRoom(4) ? 1 : 0,
+      costumbre: this.customs.length < I.customs.length ? 1 : 0
+    };
+    const kind = weightedPick(I.weights, null, bias);
+    if (kind === 'saber') {
+      const t = Tech.current;
+      Tech.points += t.cost * I.knowledgeShare;
+      HUD.log(`Los mercaderes traen noticias de otras tierras sobre ${t.label.toLowerCase()}: el pueblo avanza en su estudio`);
+    } else if (kind === 'semillas') {
+      this.seeds++;
+      HUD.log('La caravana trae semillas de otras tierras: los campos rendirán más');
+    } else if (kind === 'caballos') {
+      Economy.take('grano', I.horsePrice);
+      new Animal('caballo', animalSpot('caballo', countKind('caballo')));
+      HUD.log(`La caravana deja un caballo a cambio de ${I.horsePrice} de comida`);
+    } else if (kind === 'colono') {
+      const roles = ['sabio', 'curandero', 'lenador', 'agricultor'];
+      if (World.anchors.lago) roles.push('pescador');
+      const role = pick(roles);
+      const a = Growth.spawnImmigrant(role, pick(BORDER_NODES));
+      if (a) HUD.log(`Con la caravana llega ${a.name}, ${a.roleWord} de tierras lejanas, y se queda en Valdecerro`);
+    } else if (kind === 'costumbre') {
+      const left = I.customs.filter(c => !this.customs.includes(c));
+      const c = pick(left);
+      this.customs.push(c);
+      for (const a of agents) if (a.isResident && !a.removed) a.needs.mood = Math.min(1, a.needs.mood + 0.1);
+      HUD.log(`El pueblo adopta de los mercaderes la costumbre ${c.startsWith('el ') ? 'del ' + c.slice(3) : 'de ' + c}: habrá más ferias`);
+    }
+  },
+  // Respuesta al cambio: tras una sequía se estudian las acequias; tras una peste, el hospital.
+  preferredTech(list) {
+    if (this.droughtsSeen > 0) { const t = list.find(t => t.id === 'acequias'); if (t) return t; }
+    if (this.epidemicsSeen > 0) { const t = list.find(t => t.id === 'hospital'); if (t) return t; }
+    return null;
+  },
+  // ---- ciclo
+  update(dt) {
+    if (this.shake > 0) this.shake = Math.max(0, this.shake - dt);
+    if (this.flood) {
+      this.flood.t += dt;
+      if (this.flood.t >= this.flood.duration) this.endFlood();
+    } else if (Weather.isStorm && DayCycle.day - this.lastFloodDay >= CONFIG.exogenous.riada.minDayGap) {
+      if (rng() < CONFIG.exogenous.riada.chancePerStorm / 80 * dt) this.startFlood();
+    }
+    this.dryness += ((this.drought ? 1 : 0) - this.dryness) * Math.min(1, dt * 0.02);
+    if (this.epidemic) {
+      this.spreadAcc += dt;
+      if (Sim.frame % 20 === 0) { this.spread(this.spreadAcc); this.spreadAcc = 0; }
+    }
+  },
+  onNewDay() {
+    const X = CONFIG.exogenous;
+    if (this.epidemic) {
+      if (this.infectedCount() === 0) { this.epidemic.clearDays++; if (this.epidemic.clearDays >= X.epidemia.endAfterClearDays) this.endEpidemic(); }
+      else this.epidemic.clearDays = 0;
+    } else {
+      const p = X.epidemia.chancePerDay * (1 + Growth.residents() / 30) * (DayCycle.season === 'Invierno' ? X.epidemia.winterMul : 1);
+      if (chance(p)) this.startEpidemic('casa');
+    }
+    if (this.drought) {
+      this.drought.daysLeft--;
+      for (const a of agents) if (a.isResident && !a.removed) a.needs.mood = Math.max(0, a.needs.mood - X.sequia.moodLossPerDay);
+      if (this.drought.daysLeft <= 0) { this.drought = null; HUD.log('Vuelven las lluvias y termina la sequía'); }
+    } else if (DayCycle.season === 'Verano' && DayCycle.dayOfSeason === 1 && DayCycle.year >= X.sequia.firstYear && chance(X.sequia.chancePerSeason)) this.startDrought();
+    if (chance(X.terremoto.chancePerDay)) this.doQuake();
+  },
+  // Sesgo del clima: en sequía casi no llueve.
+  weatherBias() { return this.drought ? { SOLEADO: 3, NUBLADO: 1, FRIO: 0.5, LLUVIA: 0.08, TORMENTA: 0.15 } : null; },
+  alerts() {
+    const out = [];
+    if (this.epidemic) out.push(`Peste: ${this.infectedCount()} contagiados, ${this.epidemic.deaths} muertos`);
+    if (this.drought) out.push(`Sequía: ${this.drought.daysLeft} día${this.drought.daysLeft === 1 ? '' : 's'} más sin lluvia`);
+    if (this.flood) out.push('Riada: el arroyo se ha desbordado');
+    if (this.shake > 0) out.push('Terremoto');
+    return out;
+  },
+  serialize() {
+    return {
+      epidemic: this.epidemic, drought: this.drought, flood: this.flood ? { t: this.flood.t, duration: this.flood.duration } : null,
+      seen: [this.epidemicsSeen, this.droughtsSeen, this.floodsSeen, this.quakesSeen], lastFloodDay: this.lastFloodDay,
+      seeds: this.seeds, customs: this.customs.slice()
+    };
+  },
+  restore(data) {
+    this.epidemic = null; this.drought = null; this.flood = null; this.shake = 0; this.seeds = 0; this.customs = []; this.dryness = 0;
+    this.epidemicsSeen = 0; this.droughtsSeen = 0; this.floodsSeen = 0; this.quakesSeen = 0; this.lastFloodDay = -99;
+    Water.riseTarget = 0;
+    if (!data) return;
+    this.epidemic = data.epidemic || null;
+    this.drought = data.drought || null;
+    this.flood = data.flood || null;
+    if (this.flood) Water.riseTarget = CONFIG.water.floodRise;
+    if (data.seen) [this.epidemicsSeen, this.droughtsSeen, this.floodsSeen, this.quakesSeen] = data.seen;
+    this.lastFloodDay = data.lastFloodDay === undefined ? -99 : data.lastFloodDay;
+    this.seeds = data.seeds || 0;
+    this.customs = data.customs || [];
+    this.dryness = this.drought ? 1 : 0;
+  }
+};
+
+// ==================== eras.js
+
+// Etapas históricas. La etapa describe un estado, no lo causa: se alcanza cuando coinciden población,
+// saberes y edificios, y se pierde si la población se hunde varios días seguidos.
+const Eras = {
+  index: 0, belowDays: 0, changedDay: 0, roofTarget: hex(CONFIG.eras[0].roof),
+  get def() { return CONFIG.eras[this.index]; },
+  get label() { return this.def.label; },
+  get title() { return this.def.title; },
+  qualifies(i) {
+    const d = CONFIG.eras[i];
+    if (Growth.residents() < d.minResidents || Tech.unlocked.size < d.minTech) return false;
+    return d.needs.every(n => n.split('|').some(k => !!World.buildings[k]));
+  },
+  onNewDay() {
+    let best = this.index;
+    for (let i = this.index + 1; i < CONFIG.eras.length; i++) { if (this.qualifies(i)) best = i; else break; }
+    if (best > this.index) { this.set(best, true); return; }
+    if (this.index > 0 && Growth.residents() < this.def.minResidents * 0.6) {
+      this.belowDays++;
+      if (this.belowDays >= CONFIG.eraDecayDays) this.set(this.index - 1, false);
+    } else this.belowDays = 0;
+  },
+  set(i, up) {
+    this.index = i;
+    this.belowDays = 0;
+    this.changedDay = DayCycle.day;
+    this.applyVisuals();
+    const d = this.def;
+    if (up) {
+      Ruler.popularity = Math.min(1, Ruler.popularity + 0.1);
+      HUD.log(`Valdecerro prospera y pasa a ser ${d.label.toLowerCase()}: ${d.desc}`);
+    } else HUD.log(`Valdecerro decae y vuelve a ser ${d.label.toLowerCase()}`);
+  },
+  // Lo que se ve: el color de los tejados de paja cambia despacio, los caminos y las farolas de golpe.
+  applyVisuals() {
+    const d = this.def;
+    this.roofTarget.set(d.roof);
+    setRoadStyle(d.road, !!d.paving);
+    Lamps.setStyle(d.lamp[0], d.lamp[1]);
+  },
+  update(dt) {
+    Assets.mat.thatch.color.lerp(this.roofTarget, Math.min(1, dt * 0.03));
+  },
+  maxPopulation() { return this.def.maxPopulation; },
+  techMul() { return this.def.techMul; },
+  serialize() { return { index: this.index, belowDays: this.belowDays, changedDay: this.changedDay }; },
+  restore(data) {
+    this.index = data ? Math.min(CONFIG.eras.length - 1, data.index || 0) : 0;
+    this.belowDays = data ? data.belowDays || 0 : 0;
+    this.changedDay = data ? data.changedDay || 0 : 0;
+    this.applyVisuals();
+    Assets.mat.thatch.color.copy(this.roofTarget);
   }
 };
 
@@ -4715,6 +5583,8 @@ const SaveSystem = {
       tech: Tech.serialize(),
       ruler: Ruler.serialize(),
       lamps: Lamps.serialize(),
+      exogenous: Exogenous.serialize(),
+      eras: Eras.serialize(),
       relations: Relations.serialize(),
       agents: agents.filter(a => !a.removed).map(a => a.serialize()),
       animals: serializeAnimals()
@@ -4779,16 +5649,23 @@ function onNewDay() {
   let chickens = 0;
   for (const a of animals) if (a.kind === 'gallina' && !a.removed) chickens++;
   Economy.add('grano', chickens * CONFIG.economy.eggsPerChickenPerDay);
-  if (DayCycle.day % 3 === 0) replenishChickens();
+  replenishAnimals(DayCycle.day);
+  // La fábrica convierte mineral en monedas cada día sin que nadie la atienda.
+  if (World.fabrica) {
+    const used = Economy.take('mineral', CONFIG.economy.factoryMineralPerDay);
+    if (used > 0) Economy.add('monedas', used * CONFIG.economy.factoryCoinsPerMineral);
+  }
   const residents = Growth.residents();
   const tax = Economy.payTaxes(residents, Ruler.taxMul());
   const lamps = Lamps.placeDaily(Tech.has('alumbrado'));
   let hunger = 0;
   for (const a of agents) if (a.isResident) hunger += a.needs.hunger;
   Growth.onNewDay({ foodPerCapita: Economy.foodPerCapita(residents), avgHunger: residents ? hunger / residents : 0, tax, lampsToday: lamps });
+  Exogenous.onNewDay();
+  Eras.onNewDay();
   Growth.sample(DayCycle.day);
   Crops.updateSeason(DayCycle.season, (DayCycle.dayOfSeason - 1) / Math.max(1, CONFIG.calendar.daysPerSeason - 1));
-  HUD.log(`Amanece el día ${DayCycle.day}: quedan ${Math.floor(Economy.stock.grano)} de grano para ${Growth.residents()} habitantes; el castillo cobra ${Math.round(tax)} monedas`);
+  HUD.log(`Amanece el día ${DayCycle.day}: quedan ${Math.floor(Economy.stock.grano)} de comida para ${Growth.residents()} habitantes; ${Ruler.council ? 'el concejo' : 'el castillo'} cobra ${Math.round(tax)} monedas`);
 }
 function onNewSeason() {
   HUD.log(SEASON_NOTES[DayCycle.season]);
@@ -4876,8 +5753,16 @@ function updateCamera(real) {
   }
   if (!CameraState.interacting) CameraState.idle += real;
   controls.autoRotate = CameraState.autoEnabled && !CameraState.interacting && !Follow.agent && CameraState.idle >= CONFIG.camera.resumeAfter;
+  cam.position.sub(shakeOff);
   controls.update();
+  // Terremoto: sacudida de cámara puramente visual, sin tocar el RNG de la simulación.
+  if (Exogenous.shake > 0) {
+    const k = Math.min(1, Exogenous.shake / 1.5) * 0.45, t = performance.now() / 1000;
+    shakeOff.set(Math.sin(t * 61) * k, Math.sin(t * 47) * k * 0.6, Math.cos(t * 53) * k);
+  } else shakeOff.set(0, 0, 0);
+  cam.position.add(shakeOff);
 }
+const shakeOff = new THREE.Vector3();
 
 // Un paso de simulación sin renderizar; lo usa el bucle normal y la puesta al día tras una ausencia.
 function simulateStep(dt) {
@@ -4887,6 +5772,8 @@ function simulateStep(dt) {
   Events.update(dt);
   Economy.update(dt);
   Tech.update(dt);
+  Exogenous.update(dt);
+  Eras.update(dt);
   for (let i = 0; i < agents.length; i++) if (!agents[i].removed) agents[i].update(dt);
   for (let i = agents.length - 1; i >= 0; i--) if (agents[i].removed) agents.splice(i, 1);
   if (Sim.frame % CONFIG.social.checkEveryFrames === 0) socialCheck();
@@ -4951,6 +5838,8 @@ function resumen() {
     residents: Growth.residents(), sick: Growth.sickCount(), deaths: Growth.deaths, buildings: World.constructions.length, graves: World.graves.length,
     stock, treasury: Math.round(Economy.treasury), ruler: Ruler.name, policy: Ruler.policy, popularity: +Ruler.popularity.toFixed(2),
     tech: Array.from(Tech.unlocked), lamps: Lamps.list.length, deposits: World.deposits.length, seed: Rng.seedValue,
+    era: Eras.label, council: Ruler.council, alerts: Exogenous.alerts(), customs: Exogenous.customs.length, seeds: Exogenous.seeds,
+    animals: { gallinas: countKind('gallina'), cerdos: countKind('cerdo'), perros: countKind('perro'), caballos: countKind('caballo') },
     log: HUD.entries.map(e => e.msg), journal: HUD.journal ? HUD.journal.slice() : []
   };
 }
@@ -5004,6 +5893,8 @@ async function boot() {
     Tech.restore(data.tech);
     Ruler.restore(data.ruler);
     Lamps.restore(data.lamps);
+    Exogenous.restore(data.exogenous);
+    Eras.restore(data.eras);
     Rng.setState(data.rngState);
     HUD.log(`Partida cargada${source === 'servidor' ? ' del servidor' : ''}: día ${DayCycle.day}, ${DayCycle.season.toLowerCase()} del año ${DayCycle.year}`);
   } else {
@@ -5014,6 +5905,8 @@ async function boot() {
     spawnAnimals();
     Tech.restore(null);
     Ruler.init();
+    Exogenous.restore(null);
+    Eras.restore(null);
     HUD.log('Amanece sobre Valdecerro');
   }
   DayCycle.onNewDay = onNewDay;
@@ -5023,7 +5916,7 @@ async function boot() {
   applyLighting();
   console.log(data ? 'Partida cargada con semilla' : 'Semilla de esta partida:', Rng.seedValue);
   if (DEBUG) {
-    window.__dbg = { agents, animals, wolves, Events, Weather, DayCycle, Sim, STATE, Render, World, CONFIG, Assets, Rain, Terrain, Graph, Economy, Growth, HUD, SaveSystem, AgentRenderer, Follow, simulateStep, catchUp, Tech, Ruler, Lamps, Deposits, resumen, source };
+    window.__dbg = { agents, animals, wolves, Events, Weather, DayCycle, Sim, STATE, Render, World, CONFIG, Assets, Rain, Terrain, Graph, Economy, Growth, HUD, SaveSystem, AgentRenderer, Follow, simulateStep, catchUp, Tech, Ruler, Lamps, Deposits, resumen, source, Exogenous, Eras, Water };
   }
   const start = () => {
     for (const a of agents) AgentRenderer.write(a);

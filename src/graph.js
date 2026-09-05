@@ -17,6 +17,7 @@ export const NODE_DEFS = [
   { id: 'granja', x: -48, z: 42, area: 4 },
   { id: 'almacen', x: 38, z: -23, area: 3 },
   { id: 'bosque', x: -60, z: -40, area: 3 },
+  { id: 'lago', x: 44, z: 50, area: 3 },
   { id: 'norte', x: -6, z: -97, area: 0, edge: true, label: 'del norte' },
   { id: 'sur', x: 12, z: 97, area: 0, edge: true, label: 'del sur' },
   { id: 'este', x: 97, z: 9, area: 0, edge: true, label: 'del este' },
@@ -28,7 +29,7 @@ export const EDGE_DEFS = [
   ['mercado', 'almacen'], ['almacen', 'mina'], ['mina', 'este'], ['castillo', 'norte'],
   ['taberna', 'granja'], ['granja', 'oeste'], ['casa1', 'sur'], ['casa2', 'taberna'],
   ['casa3', 'granja'], ['casa4', 'este'], ['iglesia', 'castillo'], ['casa1', 'mercado'],
-  ['casa3', 'bosque'], ['iglesia', 'bosque']
+  ['casa3', 'bosque'], ['iglesia', 'bosque'], ['casa1', 'lago']
 ];
 export const BORDER_NODES = NODE_DEFS.filter(n => n.edge).map(n => n.id);
 

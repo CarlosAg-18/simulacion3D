@@ -57,7 +57,7 @@ Todo el código vive en `src/`, un archivo por sistema:
 | `config.js` | Todos los parámetros ajustables y la paleta |
 | `utils.js` | RNG sembrado con estado exportable, interpolaciones, temporales |
 | `state.js` | Contenedores compartidos: escena, agentes, animales, mundo |
-| `terrain.js` | Ruido, rejilla de alturas, pintado de caminos, recálculo tras obras |
+| `terrain.js` | Ruido, rejilla de alturas, lagos y arroyos excavados, pintado de caminos por etapa, recálculo tras obras |
 | `graph.js` | Nodos, aristas curvas, Floyd-Warshall, nodos añadidos en caliente |
 | `assets.js` | Geometrías y materiales compartidos |
 | `buildings.js` | Fábricas de edificios, andamio de obra, carpas, carro |
@@ -66,9 +66,11 @@ Todo el código vive en `src/`, un archivo por sistema:
 | `calendar.js` | Hora, día, estación, año, luz solar y paleta estacional |
 | `weather.js` | Máquina de clima con sesgo estacional, lluvia y nieve recicladas, relámpagos |
 | `agents.js` | Movimiento por grafo, necesidades, rutina por utilidad, transporte, sueño, social, afinidad |
-| `animals.js` | Gallinas y cerdos |
+| `animals.js` | Gallinas, cerdos, perros, caballos y lobos |
 | `events.js` | Feria, misa, caravana con comercio, turno de mina, mercado |
 | `growth.js` | Planificador de obras, inmigración, parejas, nacimientos, niños que crecen |
+| `exogenos.js` | Peste, sequía, riada, terremoto e intercambio cultural con las caravanas |
+| `eras.js` | Etapas históricas: condiciones, efectos y aspecto del pueblo |
 | `save.js` | Serialización y autoguardado |
 | `hud.js` | Panel de información y controles |
 | `main.js` | Arranque, carga de partida (servidor o local), puesta al día, bucle principal |
@@ -97,9 +99,24 @@ Todo el código vive en `src/`, un archivo por sistema:
 - Exploración: con cartografía salen expediciones de dos vecinos hacia zonas lejanas. Hay tres yacimientos ocultos de hierro y oro generados con la semilla; al descubrirlos aparece la bocamina con su camino y los mineros reparten sus viajes entre la mina del pueblo y las vetas nuevas.
 - Edificios con función: escuela (sabio, saber al doble), molino (aspas que giran, más capacidad y rendimiento de grano), herrería (herramientas para todos los oficios), torre de vigía (guardias más eficaces contra lobos e incendios), además de casas, campos, botica y granero. Los faroles se instalan solos por los caminos, tres por día, pagados con madera y monedas del tesoro.
 - Señorío: hay un señor del castillo con corona. Cobra impuestos al tesoro, proclama un decreto cada tres días (cosecha, expansión, defensa, saber, fiesta pagada o austeridad) según lo que necesita el pueblo, y su popularidad sube con comida, obras y fiestas y baja con hambre, muertes e impuestos. Si cae mucho hay revuelta ante el castillo; si persiste, lo deponen y el vecino de mejor ánimo ocupa el castillo. Al morir, hereda su pareja o su hijo.
+- Agua: hay un lago al sureste con su muelle, una charca al suroeste y dos arroyos. Un pescador (y los que lleguen después) trabaja en el muelle y su pesca entra como comida; en invierno rinde la mitad y durante una riada nada. Los caminos que cruzan un arroyo reciben un puente.
+- Animales: además de gallinas y cerdos hay perros, que viven en las puertas de las casas y corren a ladrar a los lobos, y caballos, que pastan junto a la granja y el castillo. Nace un cachorro por cada tres casas y un potro cuando sobra comida; las caravanas también dejan caballos. El carro de la caravana va tirado por un caballo.
+- Agentes exógenos, lo que le pasa al pueblo desde fuera de sus reglas:
+  - Peste: puede brotar sola o llegar con una caravana. Se contagia por cercanía; el señor decreta cuarentena, los contagiados guardan casa y solo salen a comer, y los curados quedan inmunes un tiempo. La medicina y el hospital reducen mucho la letalidad. Tras una peste el pueblo estudia el hospital antes que nada y lo levanta en cuanto puede.
+  - Sequía: puede empezar con el verano; los campos rinden un tercio, apenas llueve, la hierba amarillea y el señor decreta cosecha. Las acequias, que se estudian en cuanto se ha sufrido una sequía, salvan parte de la cosecha.
+  - Riada: con tormenta el arroyo puede desbordarse; el agua sube, se pierde una parte de la comida y madera en reparos, y el pescador no puede trabajar hasta que bajan las aguas.
+  - Terremoto: raro; sacude la cámara, hiere a dos vecinos y cuesta piedra y madera en grietas.
+  - Intercambio cultural: casi la mitad de las caravanas dejan algo más que mercancía: noticias que adelantan el estudio en curso, semillas que mejoran los campos, un caballo, un colono con oficio raro, o una costumbre nueva que sube el ánimo y trae más ferias.
+- Recursos y progreso: los avances de saber cuestan materiales además de estudio (madera, piedra, monedas, hierro u oro); si faltan, el estudio espera y el registro lo dice. Con la etapa crecen los máximos de casas, campos y graneros. La fábrica convierte mineral en monedas cada día sin que nadie la atienda. El árbol tiene ahora 15 saberes: a los nueve de antes se suman acequias, concejo, imprenta, hospital, universidad y máquina de vapor.
+- Etapas históricas: el pueblo es aldea, villa, ciudad o ciudad industrial. La etapa no se decreta: se alcanza cuando coinciden población, número de saberes y ciertos edificios (molino o herrería para villa; escuela y ayuntamiento para ciudad; fábrica para la industrial), y se pierde si la población cae por debajo del 60 % del umbral durante cinco días. Cada etapa cambia el aspecto del pueblo (los tejados de paja pasan a teja y luego a pizarra, los caminos de tierra a empedrado y adoquín, las farolas a luz de gas), sube el tope de población y acelera el saber. El título del panel dice en qué etapa está.
+- Gobierno: con el ayuntamiento el señorío se convierte en concejo. El señor pasa a ser alcalde, los impuestos bajan, no hay revueltas y cada diez días hay elecciones en las que gana quien tiene mejor ánimo y más amistades; si la popularidad se hunde se adelantan.
 - Rendimiento: todos los habitantes se dibujan con nueve mallas instanciadas y la interacción social usa una rejilla espacial, así que el pueblo aguanta hasta 80 habitantes sin bajar de 60 fps.
 
 ## Parámetros que conviene tocar primero
+
+- `exogenous.*`: probabilidad y dureza de peste, sequía, riada, terremoto e intercambio.
+- `eras`: umbrales de población, saberes y edificios de cada etapa.
+- `water`: posición y tamaño de lagos y arroyos.
 
 - `dayLengthSeconds`: duración del día; las tasas de producción se reescalan solas.
 - `calendar.daysPerSeason`: ritmo de las estaciones.

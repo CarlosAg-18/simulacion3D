@@ -5,6 +5,7 @@ import { Render } from './state.js';
 import { Assets } from './assets.js';
 import { HUD } from './hud.js';
 import { DayCycle } from './calendar.js';
+import { Exogenous } from './exogenos.js';
 
 export const WEATHER_PRESETS = {
   SOLEADO: { fog: 0.0022, sun: 1.00, sky: 1.00, exposure: 1.00, rain: 0, tint: 0.0, label: 'Soleado', sub: 'Cielo despejado', msg: 'Se abre el cielo y vuelve el sol' },
@@ -101,7 +102,10 @@ export const Weather = {
     this.timer -= dt;
     if (this.timer <= 0) {
       const row = CONFIG.weather.transitions[this.state];
-      this.set(weightedPick(row, null, CONFIG.calendar.weatherBias[DayCycle.season]));
+      const bias = Object.assign({}, CONFIG.calendar.weatherBias[DayCycle.season]);
+      const xb = Exogenous.weatherBias();
+      if (xb) for (const k in xb) bias[k] = (bias[k] || 1) * xb[k];
+      this.set(weightedPick(row, null, bias));
     }
     // Transición gradual: aproximación exponencial que llega al 95 % en transitionSeconds.
     const k = 1 - Math.exp(-dt * 3 / CONFIG.weather.transitionSeconds);

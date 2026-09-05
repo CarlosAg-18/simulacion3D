@@ -11,6 +11,8 @@ import { serializeAnimals } from './animals.js';
 import { HUD } from './hud.js';
 import { Tech, Ruler } from './tech.js';
 import { Lamps } from './world.js';
+import { Exogenous } from './exogenos.js';
+import { Eras } from './eras.js';
 
 // Guardado en localStorage: todo el estado vive en objetos planos, así que basta con serializarlos.
 // Cargar recarga la página con una bandera para reconstruir el mundo desde cero con la misma semilla.
@@ -40,6 +42,8 @@ export const SaveSystem = {
       tech: Tech.serialize(),
       ruler: Ruler.serialize(),
       lamps: Lamps.serialize(),
+      exogenous: Exogenous.serialize(),
+      eras: Eras.serialize(),
       relations: Relations.serialize(),
       agents: agents.filter(a => !a.removed).map(a => a.serialize()),
       animals: serializeAnimals()

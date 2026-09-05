@@ -73,13 +73,19 @@ export function initAssets() {
   Assets.roleColors = {
     agricultor: std(0x7A8F3C), comerciante: std(0x8E4C8E), minero: std(0x55606B), lenador: std(0x3E7A6B),
     aldeano: std(0xB0653A), clerigo: std(0xE7DCC3), guardia: std(0xA03A3A), viajero: std(0x3E6F8E), nino: std(0xD08A5A),
-    curandero: std(0x4F8C8C), sabio: std(0x3E4E8E), senor: std(0x6E2E7A)
+    curandero: std(0x4F8C8C), sabio: std(0x3E4E8E), senor: std(0x6E2E7A), alcalde: std(0x2E5E7A), pescador: std(0x3E7A8E)
   };
   Assets.resourceColors = { grano: std(0xE0C060), madera: std(0x8B5E3C), piedra: std(0x8E8B84), mineral: std(0x4A5566), hierro: std(0x8A4A3A), oro: std(0xE0B030) };
   m.gold = std(0xE0B030, { roughness: 0.4 });
   m.iron = std(0x8A4A3A);
   m.lantern = new THREE.MeshStandardMaterial({ color: 0x5A4A30, emissive: 0xFFB050, emissiveIntensity: 0, flatShading: true, roughness: 0.6 });
   m.sail = std(0xEDE4D3);
+  m.lake = new THREE.MeshStandardMaterial({ color: 0x3A6E92, transparent: true, opacity: 0.82, roughness: 0.25, metalness: 0.05, flatShading: true });
+  m.horse = std(0x6B4A2E); m.horseDark = std(0x3A2A1C);
+  m.dog = std(0xC9A66B); m.dogDark = std(0x6A4A2A);
+  m.brick = std(0x8A4B3A); m.slate = std(0x5E6470);
+  m.marble = std(0xE9E4D6, { roughness: 0.6 });
+  m.cross = std(0xC43A2E);
 }
 export function mesh(geo, mat, x, y, z, sx, sy, sz, ry) {
   const o = new THREE.Mesh(geo, mat);

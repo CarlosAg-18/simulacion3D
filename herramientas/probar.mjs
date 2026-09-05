@@ -64,6 +64,51 @@ await send('Page.navigate', { url });
 await sleep(9000);
 logs.push('[BOOT] ' + await evaluate(SNAP));
 await shot('v2_1_inicio');
+if (mode === 'peste') {
+  // Letalidad de la peste: se fuerza una epidemia y se mide contagio y muertes a lo largo de unos días acelerados.
+  await evaluate(FAST);
+  logs.push('[START] ' + await evaluate(`(() => { const D = __dbg; D.Growth.residents = () => 30; D.Exogenous.startEpidemic('casa'); return JSON.stringify({ pop: D.agents.filter(a => a.isResident).length, policy: D.Ruler.policy, hospital: !!D.World.hospital, medicina: D.Tech.has('medicina') }); })()`));
+  for (let i = 0; i < 12; i++) {
+    await sleep(15000);
+    logs.push('[PESTE] ' + await evaluate(`(() => { const D = __dbg; const e = D.Exogenous.epidemic; return JSON.stringify({ day: D.DayCycle.day, pop: D.agents.filter(a => a.isResident && !a.removed).length, infected: D.Exogenous.infectedCount(), total: e ? e.total : null, deaths: e ? e.deaths : null, sick: D.Growth.sickCount(), policy: D.Ruler.policy, ended: !e }); })()`));
+  }
+  writeFileSync(`${S}\\drive2.log`, logs.join(String.fromCharCode(10)));
+  chrome.kill();
+  process.exit(0);
+}
+if (mode === 'exogenos') {
+  // Agua, animales nuevos, peste, sequía, riada, terremoto, intercambio, saberes con materiales, etapas, concejo y guardado.
+  await evaluate(FAST);
+  logs.push('[MUNDO] ' + await evaluate(`(() => { const D = __dbg; const kinds = {}; for (const a of D.animals) kinds[a.kind] = (kinds[a.kind]||0)+1; return JSON.stringify({ kinds, lago: !!D.World.anchors.lago, muelle: !!D.World.buildings.muelle, nodes: D.Graph.nodes.length, waterY: D.Water.mesh.position.y, pescadores: D.agents.filter(a => a.role === 'pescador').map(a => [a.activity, a.node]), bridges: D.World.bridges.length, calls: D.Render.renderer.info.render.calls, era: D.Eras.label, title: document.getElementById('hud-title').textContent }); })()`));
+  await sleep(6000);
+  await shot('v5_agua');
+  logs.push('[PESCA] ' + await evaluate(`(() => { const D = __dbg; return JSON.stringify(D.agents.filter(a => a.role === 'pescador').map(a => [a.activity, a.state, a.node, Math.round(a.pos.x), Math.round(a.pos.z), +a.carry.amount.toFixed(1)])); })()`));
+  logs.push('[PESTE] ' + await evaluate(`(() => { const D = __dbg; D.Growth.residents = () => 30; D.Exogenous.startEpidemic('casa'); return JSON.stringify({ ep: D.Exogenous.epidemic, infected: D.Exogenous.infectedCount(), policy: D.Ruler.policy, alerts: D.Exogenous.alerts(), alertsBox: document.getElementById('hud-alerts').textContent }); })()`));
+  await sleep(20000);
+  logs.push('[PESTE-2] ' + await evaluate(`(() => { const D = __dbg; return JSON.stringify({ infected: D.Exogenous.infectedCount(), total: D.Exogenous.epidemic && D.Exogenous.epidemic.total, deaths: D.Exogenous.epidemic && D.Exogenous.epidemic.deaths, acts: D.agents.filter(a => a.infected).map(a => a.activity), log: D.HUD.entries.map(e => e.msg) }); })()`));
+  logs.push('[SEQUIA] ' + await evaluate(`(() => { const D = __dbg; D.Exogenous.startDrought(); const a = D.agents.find(x => x.role === 'agricultor'); const p = a.resourcePlan('grano', 1); return JSON.stringify({ drought: D.Exogenous.drought, foodMul: D.Exogenous.foodMul(), rate: +p.rate.toFixed(3), bias: D.Exogenous.weatherBias(), policy: D.Ruler.policy }); })()`));
+  logs.push('[RIADA] ' + await evaluate(`(() => { const D = __dbg; D.Exogenous.startFlood(); return JSON.stringify({ flood: D.Exogenous.flood, rise: D.Water.riseTarget, grano: Math.round(D.Economy.stock.grano), log: D.HUD.entries[0].msg }); })()`));
+  await sleep(4000);
+  await shot('v5_riada');
+  logs.push('[TERREMOTO] ' + await evaluate(`(() => { const D = __dbg; D.Exogenous.doQuake(); return JSON.stringify({ shake: D.Exogenous.shake, log: D.HUD.entries[0].msg }); })()`));
+  await sleep(1500);
+  logs.push('[INTERCAMBIO] ' + await evaluate(`(() => { const D = __dbg; D.Economy.stock.grano = 200; const seen = []; for (let i = 0; i < 6; i++) { D.Exogenous.exchange(); seen.push(D.HUD.entries[0].msg); } return JSON.stringify({ seen, seeds: D.Exogenous.seeds, customs: D.Exogenous.customs, horses: D.animals.filter(a => a.kind === 'caballo').length, points: +D.Tech.points.toFixed(1) }); })()`));
+  logs.push('[TECH] ' + await evaluate(`(() => { const D = __dbg; D.Economy.stock.madera = 0; D.Tech.unlocked.add('arado'); D.Tech.current = D.CONFIG.tech.tree.find(t => t.id === 'acequias'); D.Tech.points = 999; D.Tech.update(0.1); const waiting = D.Tech.waiting; const waitMsg = D.HUD.entries[0].msg; D.Economy.stock.madera = 300; D.Economy.stock.piedra = 300; D.Economy.stock.monedas = 300; D.Economy.stock.hierro = 60; D.Economy.stock.oro = 10; D.World.deposits.push({ key: 'x', kind: 'hierro', anchor: D.World.anchors.mina }, { key: 'y', kind: 'oro', anchor: D.World.anchors.mina }); for (let i = 0; i < 20; i++) { D.Tech.points = 999; D.Tech.update(0.1); } return JSON.stringify({ waiting, waitMsg, unlocked: Array.from(D.Tech.unlocked), current: D.Tech.current && D.Tech.current.id, madera: Math.round(D.Economy.stock.madera) }); })()`));
+  logs.push('[BUILD] ' + await evaluate(`(() => { const D = __dbg; D.Economy.stock.madera = 900; D.Economy.stock.piedra = 900; D.Economy.stock.hierro = 90; D.Economy.stock.grano = 200; D.Economy.stock.monedas = 300; D.Growth.residents = () => 46; D.Growth.housingCapacity = () => 200; const seen = []; for (let i = 0; i < 14; i++) { D.Growth.site = null; D.Growth.plan(); if (!D.Growth.site) { seen.push('sin obra: ' + D.Growth.siteLabel()); D.Eras.onNewDay(); continue; } seen.push(D.Growth.site.label); D.Growth.site.progress = 0.999; D.Growth.addProgress(1); D.Eras.onNewDay(); D.Ruler.onNewDay({ foodPerCapita: 3, avgHunger: 0.4, tax: 1, deathsToday: 0, buildsToday: 1, lampsToday: 0 }); } return JSON.stringify({ seen, buildings: Object.keys(D.World.buildings), era: D.Eras.label, council: D.Ruler.council, ruler: [D.Ruler.name, D.Ruler.agent && D.Ruler.agent.role], dynamics: D.World.dynamics.length, bridges: D.World.bridges.length, calls: D.Render.renderer.info.render.calls, log: D.HUD.entries.map(e => e.msg) }); })()`));
+  await sleep(2500);
+  await shot('v5_ciudad');
+  logs.push('[ELECCION] ' + await evaluate(`(() => { const D = __dbg; const before = D.Ruler.name; D.Ruler.popularity = 0.1; D.Ruler.onNewDay({ foodPerCapita: 3, avgHunger: 0.4, tax: 1, deathsToday: 0, buildsToday: 0, lampsToday: 0 }); return JSON.stringify({ before, after: D.Ruler.name, role: D.Ruler.agent && D.Ruler.agent.role, log: D.HUD.entries.map(e => e.msg) }); })()`));
+  logs.push('[SAVE] ' + await evaluate(`(() => { const D = __dbg; D.SaveSystem.save(false); const raw = JSON.parse(localStorage.getItem(D.CONFIG.save.key)); return JSON.stringify({ eras: raw.eras, exo: raw.exogenous, animals: raw.animals.length, infected: raw.agents.filter(a => a.infected).length }); })()`));
+  await send('Page.navigate', { url });
+  await sleep(12000);
+  logs.push('[LOADED] ' + await evaluate(`JSON.stringify({ era: __dbg.Eras.label, council: __dbg.Ruler.council, ruler: __dbg.Ruler.name, customs: __dbg.Exogenous.customs, ep: !!__dbg.Exogenous.epidemic, drought: __dbg.Exogenous.drought, buildings: Object.keys(__dbg.World.buildings), animals: __dbg.animals.length, calls: __dbg.Render.renderer.info.render.calls, title: document.getElementById('hud-title').textContent, roof: __dbg.Assets.mat.thatch.color.getHexString() })`));
+  await evaluate(`(() => { const D = __dbg; D.DayCycle.time += ((22 - D.DayCycle.hour + 24) % 24) / 24 * D.CONFIG.dayLengthSeconds; D.DayCycle.refresh(); return 'ok'; })()`);
+  await sleep(2500);
+  await shot('v5_noche');
+  writeFileSync(`${S}\\drive2.log`, logs.join('\n'));
+  chrome.kill();
+  process.exit(0);
+}
 if (mode === 'progreso') {
   await evaluate(FAST);
   logs.push('[TECH] ' + await evaluate(`(() => { const D = __dbg; const out = []; for (let i = 0; i < 4; i++) { D.Tech.points = 999; D.Tech.update(0.1); out.push(Array.from(D.Tech.unlocked)); } return JSON.stringify({ unlocked: Array.from(D.Tech.unlocked), current: D.Tech.current && D.Tech.current.id, ruler: D.Ruler.name, policy: D.Ruler.policy, pop: D.Ruler.popularity, deposits: D.Deposits.list.map(d => [d.kind, Math.round(d.x), Math.round(d.z), d.discovered]) }); })()`));

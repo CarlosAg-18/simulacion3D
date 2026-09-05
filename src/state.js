@@ -8,6 +8,7 @@ export const World = {
   fields: [], homes: [], stallSpots: [], granaries: 0,
   trees: null, treeList: [], constructions: [], siteGroup: null,
   cemetery: null, graves: [], botica: null, escuela: null, flame: null,
+  hospital: null, universidad: null, ayuntamiento: null, fabrica: null, bridges: [],
   deposits: [], dynamics: []
 };
 export const Render = {

@@ -4,7 +4,7 @@ import re, pathlib, sys
 
 RAIZ = pathlib.Path(__file__).parent
 ORDEN = ['config', 'utils', 'state', 'terrain', 'graph', 'assets', 'agentmesh', 'buildings', 'economy', 'hud',
-         'weather', 'calendar', 'world', 'animals', 'agents', 'events', 'growth', 'tech', 'save', 'main']
+         'weather', 'calendar', 'world', 'animals', 'agents', 'events', 'growth', 'tech', 'exogenos', 'eras', 'save', 'main']
 CABECERA = """import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';

@@ -4,7 +4,9 @@ import { Rng, clamp, _v1, _v2 } from './utils.js';
 import { Sim, agents, animals, Render, CameraState, World, Follow, Keys } from './state.js';
 import { initRenderer, populateScene, applySavedConstructions, restoreGraves, Crops, Lamps, Deposits } from './world.js';
 import { Tech, Ruler } from './tech.js';
-import { Terrain } from './terrain.js';
+import { Terrain, Water } from './terrain.js';
+import { Exogenous } from './exogenos.js';
+import { Eras } from './eras.js';
 import { Graph } from './graph.js';
 import { Assets } from './assets.js';
 import { AgentRenderer } from './agentmesh.js';
@@ -15,7 +17,7 @@ import { Events } from './events.js';
 import { Growth } from './growth.js';
 import { HUD } from './hud.js';
 import { STATE, spawnPopulation, restorePopulation, socialCheck, Relations } from './agents.js';
-import { spawnAnimals, replenishChickens, wolves } from './animals.js';
+import { spawnAnimals, replenishAnimals, wolves, countKind } from './animals.js';
 import { SaveSystem } from './save.js';
 
 const LOAD_FLAG = 'valdecerro-cargar';
@@ -37,16 +39,23 @@ function onNewDay() {
   let chickens = 0;
   for (const a of animals) if (a.kind === 'gallina' && !a.removed) chickens++;
   Economy.add('grano', chickens * CONFIG.economy.eggsPerChickenPerDay);
-  if (DayCycle.day % 3 === 0) replenishChickens();
+  replenishAnimals(DayCycle.day);
+  // La fábrica convierte mineral en monedas cada día sin que nadie la atienda.
+  if (World.fabrica) {
+    const used = Economy.take('mineral', CONFIG.economy.factoryMineralPerDay);
+    if (used > 0) Economy.add('monedas', used * CONFIG.economy.factoryCoinsPerMineral);
+  }
   const residents = Growth.residents();
   const tax = Economy.payTaxes(residents, Ruler.taxMul());
   const lamps = Lamps.placeDaily(Tech.has('alumbrado'));
   let hunger = 0;
   for (const a of agents) if (a.isResident) hunger += a.needs.hunger;
   Growth.onNewDay({ foodPerCapita: Economy.foodPerCapita(residents), avgHunger: residents ? hunger / residents : 0, tax, lampsToday: lamps });
+  Exogenous.onNewDay();
+  Eras.onNewDay();
   Growth.sample(DayCycle.day);
   Crops.updateSeason(DayCycle.season, (DayCycle.dayOfSeason - 1) / Math.max(1, CONFIG.calendar.daysPerSeason - 1));
-  HUD.log(`Amanece el día ${DayCycle.day}: quedan ${Math.floor(Economy.stock.grano)} de grano para ${Growth.residents()} habitantes; el castillo cobra ${Math.round(tax)} monedas`);
+  HUD.log(`Amanece el día ${DayCycle.day}: quedan ${Math.floor(Economy.stock.grano)} de comida para ${Growth.residents()} habitantes; ${Ruler.council ? 'el concejo' : 'el castillo'} cobra ${Math.round(tax)} monedas`);
 }
 function onNewSeason() {
   HUD.log(SEASON_NOTES[DayCycle.season]);
@@ -134,8 +143,16 @@ function updateCamera(real) {
   }
   if (!CameraState.interacting) CameraState.idle += real;
   controls.autoRotate = CameraState.autoEnabled && !CameraState.interacting && !Follow.agent && CameraState.idle >= CONFIG.camera.resumeAfter;
+  cam.position.sub(shakeOff);
   controls.update();
+  // Terremoto: sacudida de cámara puramente visual, sin tocar el RNG de la simulación.
+  if (Exogenous.shake > 0) {
+    const k = Math.min(1, Exogenous.shake / 1.5) * 0.45, t = performance.now() / 1000;
+    shakeOff.set(Math.sin(t * 61) * k, Math.sin(t * 47) * k * 0.6, Math.cos(t * 53) * k);
+  } else shakeOff.set(0, 0, 0);
+  cam.position.add(shakeOff);
 }
+const shakeOff = new THREE.Vector3();
 
 // Un paso de simulación sin renderizar; lo usa el bucle normal y la puesta al día tras una ausencia.
 function simulateStep(dt) {
@@ -145,6 +162,8 @@ function simulateStep(dt) {
   Events.update(dt);
   Economy.update(dt);
   Tech.update(dt);
+  Exogenous.update(dt);
+  Eras.update(dt);
   for (let i = 0; i < agents.length; i++) if (!agents[i].removed) agents[i].update(dt);
   for (let i = agents.length - 1; i >= 0; i--) if (agents[i].removed) agents.splice(i, 1);
   if (Sim.frame % CONFIG.social.checkEveryFrames === 0) socialCheck();
@@ -209,6 +228,8 @@ function resumen() {
     residents: Growth.residents(), sick: Growth.sickCount(), deaths: Growth.deaths, buildings: World.constructions.length, graves: World.graves.length,
     stock, treasury: Math.round(Economy.treasury), ruler: Ruler.name, policy: Ruler.policy, popularity: +Ruler.popularity.toFixed(2),
     tech: Array.from(Tech.unlocked), lamps: Lamps.list.length, deposits: World.deposits.length, seed: Rng.seedValue,
+    era: Eras.label, council: Ruler.council, alerts: Exogenous.alerts(), customs: Exogenous.customs.length, seeds: Exogenous.seeds,
+    animals: { gallinas: countKind('gallina'), cerdos: countKind('cerdo'), perros: countKind('perro'), caballos: countKind('caballo') },
     log: HUD.entries.map(e => e.msg), journal: HUD.journal ? HUD.journal.slice() : []
   };
 }
@@ -262,6 +283,8 @@ async function boot() {
     Tech.restore(data.tech);
     Ruler.restore(data.ruler);
     Lamps.restore(data.lamps);
+    Exogenous.restore(data.exogenous);
+    Eras.restore(data.eras);
     Rng.setState(data.rngState);
     HUD.log(`Partida cargada${source === 'servidor' ? ' del servidor' : ''}: día ${DayCycle.day}, ${DayCycle.season.toLowerCase()} del año ${DayCycle.year}`);
   } else {
@@ -272,6 +295,8 @@ async function boot() {
     spawnAnimals();
     Tech.restore(null);
     Ruler.init();
+    Exogenous.restore(null);
+    Eras.restore(null);
     HUD.log('Amanece sobre Valdecerro');
   }
   DayCycle.onNewDay = onNewDay;
@@ -281,7 +306,7 @@ async function boot() {
   applyLighting();
   console.log(data ? 'Partida cargada con semilla' : 'Semilla de esta partida:', Rng.seedValue);
   if (DEBUG) {
-    window.__dbg = { agents, animals, wolves, Events, Weather, DayCycle, Sim, STATE, Render, World, CONFIG, Assets, Rain, Terrain, Graph, Economy, Growth, HUD, SaveSystem, AgentRenderer, Follow, simulateStep, catchUp, Tech, Ruler, Lamps, Deposits, resumen, source };
+    window.__dbg = { agents, animals, wolves, Events, Weather, DayCycle, Sim, STATE, Render, World, CONFIG, Assets, Rain, Terrain, Graph, Economy, Growth, HUD, SaveSystem, AgentRenderer, Follow, simulateStep, catchUp, Tech, Ruler, Lamps, Deposits, resumen, source, Exogenous, Eras, Water };
   }
   const start = () => {
     for (const a of agents) AgentRenderer.write(a);

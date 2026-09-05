@@ -13,6 +13,8 @@ Archivo de contexto para retomar el trabajo en cualquier sesión. Recoge la inte
   4. Que la partida persista entre refrescos y que "la vida siga fluyendo" aunque la pestaña esté cerrada.
   5. Progreso tecnológico, iluminación nocturna, edificios que no sean casas, descubrir recursos explorando, un gobernante con consecuencias.
   6. Montarlo en un servidor para que el pueblo "exista y coexista en su matrix": que progrese cada n horas aunque nadie lo abra. Hecho el 2026-09-04 con GitHub Pages + GitHub Actions (ver sección 10). Azure quedó como alternativa no elegida por coste y complejidad.
+  7. (2026-09-04, tras el despliegue) Acercarse a la idea del episodio de Los Simpson "The Genesis Tub": una sociedad en un frasco que progresa por etapas históricas. Pidió más animales (caballos y perros), más cuerpos de agua, agentes exógenos (desastres naturales, epidemias, intercambios culturales) con sus respuestas, aprovechar los recursos para el progreso social, tecnológico y de construcciones, el avance por etapas históricas y sintetizar el panel lateral. Hecho (sección 11).
+- El componente 3D es esencial para él: "lo hace más vistoso y cumple con mi inspiración". El progreso tiene que verse en el suelo, no solo en el panel. Escala humana (personas con nombre), no linajes abstractos.
 - Detalles que le importan: poder ocultar el panel, desplazarse por el terreno, que el pueblo se expanda hacia fuera y no solo en el centro, que las lápidas no se monten sobre la iglesia.
 
 ## 2. Qué hay en la carpeta
@@ -52,11 +54,13 @@ Un módulo por sistema en `src/`. Los ciclos de importación existen (agents ↔
 | `calendar.js` | `DayCycle` (hora, día, estación, año, horas de luz por estación), `applyLighting` (sol, luna, cielo, niebla, exposición, ventanas, tintes estacionales, nieve, faroles). |
 | `weather.js` | Máquina de clima con matriz de transición sesgada por estación, lluvia y nieve con un solo `Points` reciclado, relámpagos. |
 | `agents.js` | `Mover` (rutas por grafo, reencaminado a mitad de arista), `Agent` (necesidades, salud, rutina por utilidad, oficios, transporte, sueño, refugio, social, muerte, sucesión de rol), `socialCheck` con rejilla espacial, `spawnPopulation`, `restorePopulation`, `spawnTraveler`, `Relations`. |
-| `animals.js` | Gallinas, cerdos, lobos (`Wolf`), reposición de gallinas. |
+| `animals.js` | Tabla `KINDS` (gallina, cerdo, perro, caballo) con constructor, velocidad, altura del cuerpo y radio; `Animal` genérico (los perros persiguen lobos), `Wolf` (huye de guardias y perros), `animalSpot`, `countKind`, `spawnAnimals(saved)` por especie, `replenishAnimals(day)` (pollos, cachorros por casas, potros con comida). |
 | `events.js` | Feria, misa, caravana con comercio, turno de mina, mercado, lobos, incendio, expedición, revuelta. Viajeros espontáneos. |
 | `growth.js` | Planificador de obras, inmigración, parejas, nacimientos, crecimiento de niños, vejez, muestras del historial, `neededRole`. |
 | `tech.js` | `Tech` (árbol de saberes, tasa de conocimiento, multiplicadores) y `Ruler` (señor, decretos, popularidad, revuelta, deposición, sucesión). |
-| `hud.js` | Panel principal, panel del habitante seguido, gráfica SVG, registro, botones. |
+| `hud.js` | Panel sintetizado: título con la etapa, reloj, clima, avisos exógenos (`#hud-alerts`, solo cuando hay algo), Pueblo, Progreso y gobierno con barra de estudio, y tres `<details>` plegables (Almacén abierto; Oficios y animales; Historial). Panel del habitante, registro, botones. |
+| `exogenos.js` | `Exogenous`: peste (contagio por cercanía cada 20 frames, severidad por persona, inmunidad), sequía (verano, sesgo de clima, tinte seco), riada (con tormenta, sube el agua, pérdidas), terremoto (sacudida visual, heridos, reparos), intercambio cultural en cada caravana (saber, semillas, caballo, colono, costumbre), `preferredTech` (respuesta al cambio), `alerts()`, `foodMul/fishMul/illnessMul/spreadMul/weatherBias`, serialización. |
+| `eras.js` | `Eras`: etapa por condiciones (`qualifies`), avance y decadencia en `onNewDay`, `applyVisuals` (tejado objetivo, `setRoadStyle`, `Lamps.setStyle`), `update` funde el color de la paja despacio, `maxPopulation`, `techMul`. |
 | `save.js` | Serialización completa a `localStorage`, autoguardado, carga. |
 | `main.js` | Arranque con o sin partida, puesta al día del tiempo ausente (`catchUp`), bucle, `simulateStep`, cámara (seguimiento, WASD, límites), selección de habitante por proyección a pantalla. |
 
@@ -102,6 +106,19 @@ Lobos de noche desde el bosque a por gallinas; guardias los ahuyentan (radio × 
 - Puesta al día: al cargar se simula el tiempo real ausente con `simulateStep(0.1)` en trozos de 40 ms por frame, hasta `catchUpMaxHours` (4 h reales ≈ 60 días), con el registro silenciado y un resumen al final.
 - Orden de arranque importante para la determinismo: `initNoise` → `Graph.build` → huellas → terreno → edificios → fusión → vegetación → `Deposits.init` → `Lamps.init`, y solo después las construcciones guardadas y la población. Todas las llamadas al RNG anteriores a `Rng.setState` deben mantener el mismo orden entre versiones o la vegetación cambiará de sitio al cargar.
 
+### Agua, animales, exógenos y etapas (añadido 2026-09-04)
+- Agua: `CONFIG.water` define dos lagos elípticos (lago al sureste con muelle y nodo `lago`, charca al suroeste) y dos arroyos como polilíneas. `terrain.js` excava el terreno bajo `Water.level` (`waterCarve`, sin RNG) y pinta orilla de arena y fondo de limo; una sola lámina `Assets.mat.lake` a la altura del nivel asoma donde el terreno está excavado. Los cuerpos de agua entran en `World.obstacles` como círculos e `isFreeSpot` los rechaza. `addBridgesForEdge` tiende puentes donde un camino cruza un arroyo (también en obras nuevas). El muelle se coloca a la altura del agua, no del fondo.
+- Pescador: rol nuevo (1 inicial, hasta 3 por `neededRole`), trabaja en `World.anchors.lago` y produce `grano` (etiqueta "Comida") con `production.pesca`; entrega en `lago`. Invierno ×0.5, riada ×0.
+- Animales: perros (puertas de las casas, persiguen lobos, `dogScareRadius`), caballos (prado de la granja y castillo, pastan). Reposición diaria en `replenishAnimals`. El carro de la caravana lleva caballo (`makeCart(true)`).
+- Peste: `Agent.infected/infectedUntil/immuneUntil/severity`. Pérdida de salud `healthLossPerDay × severity × illnessMul` sin recuperación mientras dura; muerte "de la peste". El señor decreta `cuarentena` al brotar: contagiados a casa (`curarse` en casa con puntuación 3.2 salvo si tienen hambre y hay comida; despiertan a comer con hambre > 0.8), sin feria, misa ni mercado, contagio ×0.25. Lección: la primera versión mataba al 85 % porque la cuarentena impedía comer; ahora ~0-20 % con cuarentena.
+- Sequía solo empieza el primer día de verano; riada con probabilidad por segundo de tormenta y `minDayGap`; terremoto por día. Todo con `HUD.log` y `Exogenous.alerts()` para el panel y la crónica.
+- Intercambio: `Exogenous.exchange()` con pesos y sesgos de disponibilidad. Colonos vía `Growth.spawnImmigrant`.
+- Respuestas al cambio: `Tech.pickNext` prefiere acequias tras sequía y hospital tras peste; `Growth.chooseNeed` pone el hospital delante tras una peste; `Ruler.choosePolicy` prioriza cuarentena y cosecha.
+- Saberes con materiales: `tree[].res`; `Tech.waiting` mientras faltan (aviso cada 200 s). Costes subidos para que las etapas tarden días reales, no horas.
+- Etapas: `CONFIG.eras` (aldea, villa, ciudad, industrial) con `minResidents`, `minTech`, `needs` (con alternativas `a|b`), `maxPopulation`, `techMul`, `roof`, `road`, `paving`, `lamp`. `Eras.onNewDay` sube si se cumple la siguiente y baja tras `eraDecayDays` por debajo del 60 % de población. Visual: el material `thatch` compartido cambia de color (todo el pueblo se reteja), `setRoadStyle` recolorea los caminos y `Lamps.setStyle` cambia la luz. Edificios de etapa: ayuntamiento, hospital, universidad, fábrica (humo dinámico; convierte mineral en monedas al amanecer).
+- Concejo: al existir ayuntamiento `Ruler.formCouncil()`: el señor pasa a rol `alcalde` (sombrero, sin corona), impuestos ×0.7, elecciones cada 10 días o al caer la popularidad por debajo de 0.3 (`election()`: ánimo ×2 + afinidad + bonus de titular), sin revueltas; sucesión por elección.
+- Panel: `index.html` reescrito con `#hud-title`, `#hud-alerts`, `#hud-town`, `#hud-progress` y `<details class="hud-fold">`. Se eliminaron `#hud-phase`, `#hud-tech`, `#hud-ruler`.
+
 ## 5. Decisiones tomadas y por qué
 
 - Un solo archivo para el usuario, módulos para el desarrollo, y `construir.py` como puente. Razón: el usuario abre con doble clic y `file://` bloquea módulos.
@@ -128,13 +145,17 @@ Lobos de noche desde el bosque a por gallinas; guardias los ahuyentan (radio × 
 - Las lápidas antiguas de partidas previas conservan su posición vieja.
 - Tope de 80 habitantes por las ranuras de render; inmigración y nacimientos lo respetan.
 - Despliegue en servidor: implementado (sección 10). Queda que el usuario cree el repositorio en GitHub, suba la carpeta, active Pages y lance el workflow una vez. Verificado en local: primer latido crea el pueblo en 1 s; latido con 3 h de retraso simula 45 días en 20 s; `--ver` confirma que el visor lee `estado/partida.json` (fuente `servidor`, `SaveSystem.remote = true`).
-- Nombres con número ("Pedro 94") aparecen cuando se agota la lista de nombres en partidas largas; cosmético, no corregido.
+- Nombres con número ("Pedro 94"): ahora los nombres se liberan al morir o emigrar (`usedNames.delete` en `remove`), así que aparecen mucho menos.
+- Verificado 2026-09-04 (v5): sin excepciones en `exogenos`, `peste` y `full`; puesta al día de 3 h a ritmo real con el estado antiguo del servidor (compatibilidad de guardado) y con pueblo nuevo.
 
 ## 8. Cómo probar
 
 - `node herramientas/comprobar.mjs <carpeta temporal>` comprueba sintaxis e imports.
 - `node herramientas/probar.mjs <carpeta temporal> "<url>?debug=1" <modo> [rondas]` lanza Chrome sin cabeza (`C:\Program Files\Google\Chrome\Application\chrome.exe`) con `--remote-debugging-port=9333` y lo dirige por CDP. La página expone `window.__dbg` con todos los sistemas cuando la URL lleva `debug`. Modos: `full` (partida acelerada, guardado y recarga), `quick` (fps), `muerte`, `peligros`, `botica`, `catchup`, `progreso`. La URL puede ser `file:///.../valdecerro.html?debug=1` (el archivo único carga por `file://`) o `http://localhost:8000/index.html?debug=1` con `servir.bat`.
-- `node servidor/tick.mjs` es la prueba más rápida de todo el arranque sin pantalla; `--ver` deja `estado/visor.png`. Para probar la puesta al día, retrasar `savedAt` en `estado/partida.json` y volver a lanzar el latido.
+- `node servidor/tick.mjs` es la prueba más rápida de todo el arranque sin pantalla; `--ver` deja `estado/visor.png`; `--diario=ruta` vuelca todos los mensajes del periodo simulado. Prueba de balance a ritmo real: `--nueva`, retrasar `savedAt` 3 h en `estado/partida.json`, `tick --diario=...`, contar causas de muerte y leer las líneas "Amanece el día"; después `git checkout -- estado` para no pisar el estado del servidor.
+- Modos nuevos de `probar.mjs`: `exogenos` (agua, animales, peste, sequía, riada, terremoto, intercambio, saberes con materiales, etapas, concejo, elecciones, guardado y recarga) y `peste` (letalidad forzada). Usar la URL con `?debug=1&local=1`: sin `local=1` la página carga `estado/partida.json` del servidor local y `SaveSystem.remote` bloquea el guardado.
+- El modo `full` con `FAST` (días de 120 s y eventos cada 30-60 s) deja al pueblo sin comida por exceso de ferias; no es representativo del balance real. Para balance usar el latido con puesta al día.
+- Los heredocs del Bash tool en este Windows rompen con barras invertidas (`\\n` se convierte en salto de línea) y con scripts de más de ~8 KB: escribir los parches como archivos .py con la herramienta Write y ejecutarlos.
 - Lecciones del harness: `--virtual-time-budget` no avanza `requestAnimationFrame`; el render por software es demasiado lento, usar la GPU; para balance usar días de 120 s, no de 60, porque con días muy cortos el tiempo de caminar y comer se come la jornada; en `Runtime.evaluate` envolver en IIFE para no redeclarar `const D`; al guardar con `savedAt` en el pasado hay que anular `SaveSystem.save` antes de navegar porque `pagehide` vuelve a guardar; los heredocs del Bash tool fallan en este Windows, escribir archivos con la herramienta Write.
 
 ## 9. Convenciones

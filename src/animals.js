@@ -1,13 +1,15 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
-import { rand, pick, lerp, angleDelta, TAU } from './utils.js';
+import { rand, pick, chance, lerp, angleDelta, TAU } from './utils.js';
 import { Render, World, animals, agents, Sim } from './state.js';
 import { Assets, mesh } from './assets.js';
 import { terrainHeight, RoadField, _near } from './terrain.js';
 import { Graph, BORDER_NODES } from './graph.js';
 import { Weather } from './weather.js';
 import { HUD } from './hud.js';
+import { Economy } from './economy.js';
 import { spotIsClear } from './world.js';
+import { makeHorse, makeDog } from './buildings.js';
 
 function buildChicken() {
   const g = new THREE.Group();
@@ -62,16 +64,26 @@ function buildWolf() {
   g.userData.head = head; g.userData.body = body;
   return g;
 }
+// Cada especie: cómo se construye, a qué velocidad va, a qué altura lleva el cuerpo y cuánto se aleja de su sitio.
+const KINDS = {
+  gallina: { build: buildChicken, speedMul: 1.1, bodyY: 0.34, scale: [0.85, 1.1], radius: 1, graze: true },
+  cerdo: { build: buildPig, speedMul: 0.8, bodyY: 0.42, scale: [0.9, 1.2], radius: 1, graze: true },
+  perro: { build: makeDog, speedMul: 2.0, bodyY: 0.42, scale: [0.85, 1.05], radius: 1.7, graze: false },
+  caballo: { build: makeHorse, speedMul: 0.9, bodyY: 1.05, scale: [0.95, 1.1], radius: 1.5, graze: true }
+};
+export const ANIMAL_LABELS = { gallina: 'gallinas', cerdo: 'cerdos', perro: 'perros', caballo: 'caballos', lobo: 'lobos' };
+
 export class Animal {
   constructor(kind, anchor) {
+    const K = KINDS[kind];
     this.kind = kind;
-    this.group = kind === 'gallina' ? buildChicken() : buildPig();
+    this.group = K.build();
     this.pos = this.group.position;
     this.baseAnchor = anchor.clone();
     this.target = new THREE.Vector3();
     this.heading = rand(0, TAU);
     this.targetHeading = this.heading;
-    this.speed = CONFIG.animals.speed * (kind === 'gallina' ? 1.1 : 0.8);
+    this.speed = CONFIG.animals.speed * K.speedMul;
     this.state = 'peck';
     this.timer = rand(0.5, 2);
     this.phase = rand(0, TAU);
@@ -83,20 +95,21 @@ export class Animal {
       const d = s.door.distanceTo(anchor);
       if (d < bestD) { bestD = d; best = s; }
     }
-    this.rainAnchor = best.door.clone();
-    this.group.scale.setScalar(kind === 'gallina' ? rand(0.85, 1.1) : rand(0.9, 1.2));
+    this.rainAnchor = best ? best.door.clone() : anchor.clone();
+    this.group.scale.setScalar(rand(K.scale[0], K.scale[1]));
     Render.scene.add(this.group);
     animals.push(this);
   }
   pickTarget() {
-    const scared = Weather.isWet || wolves.length > 0;
+    const K = KINDS[this.kind];
+    const scared = Weather.isWet || (wolves.length > 0 && this.kind !== 'perro');
     const anchor = scared ? this.rainAnchor : this.baseAnchor;
-    const radius = scared ? CONFIG.animals.rainRadius : CONFIG.animals.wanderRadius;
+    const radius = (scared ? CONFIG.animals.rainRadius : CONFIG.animals.wanderRadius) * K.radius;
     for (let i = 0; i < 4; i++) {
       const a = rand(0, TAU), d = rand(0.8, radius);
       const x = anchor.x + Math.cos(a) * d, z = anchor.z + Math.sin(a) * d;
       RoadField.nearest(x, z, _near);
-      const onRoad = _near.p && _near.d < CONFIG.road.width * 0.5 && !scared;
+      const onRoad = _near.p && _near.d < CONFIG.road.width * 0.5 && !scared && this.kind !== 'perro';
       if (!onRoad && spotIsClear(x, z, 0.5)) { this.target.set(x, 0, z); return true; }
     }
     return false;
@@ -105,8 +118,37 @@ export class Animal {
     this.removed = true;
     Render.scene.remove(this.group);
   }
+  // Los perros corren hacia el lobo más cercano; el lobo huye al tenerlos encima.
+  nearestWolf() {
+    let best = null, bestD = Infinity;
+    for (const w of wolves) {
+      const d = Math.hypot(w.pos.x - this.pos.x, w.pos.z - this.pos.z);
+      if (d < bestD) { bestD = d; best = w; }
+    }
+    return best;
+  }
   update(dt) {
-    const u = this.group.userData;
+    const u = this.group.userData, K = KINDS[this.kind];
+    if (this.kind === 'perro' && wolves.length > 0) {
+      const w = this.nearestWolf();
+      if (w) {
+        const dx = w.pos.x - this.pos.x, dz = w.pos.z - this.pos.z;
+        const d = Math.hypot(dx, dz);
+        if (d > 1.2) {
+          const step = this.speed * 1.4 * dt;
+          this.pos.x += dx / d * step; this.pos.z += dz / d * step;
+          this.targetHeading = Math.atan2(dx, dz);
+          this.phase += dt * 16;
+        }
+        this.state = 'peck';
+        this.timer = 0.2;
+        u.body.position.y = K.bodyY + Math.abs(Math.sin(this.phase)) * 0.06;
+        this.heading += angleDelta(this.heading, this.targetHeading) * Math.min(1, 8 * dt);
+        this.group.rotation.y = this.heading;
+        this.pos.y = terrainHeight(this.pos.x, this.pos.z);
+        return;
+      }
+    }
     if (this.state === 'walk') {
       const dx = this.target.x - this.pos.x, dz = this.target.z - this.pos.z;
       const d = Math.hypot(dx, dz);
@@ -114,18 +156,18 @@ export class Animal {
       if (d <= step) {
         this.pos.x = this.target.x; this.pos.z = this.target.z;
         this.state = 'peck';
-        this.timer = rand(CONFIG.animals.peckMin, CONFIG.animals.peckMax);
+        this.timer = rand(CONFIG.animals.peckMin, CONFIG.animals.peckMax) * (K.graze ? 1 : 0.6);
       } else {
         this.pos.x += dx / d * step; this.pos.z += dz / d * step;
         this.targetHeading = Math.atan2(dx, dz);
         this.phase += dt * 12;
       }
       u.head.rotation.x = lerp(u.head.rotation.x, 0, Math.min(1, dt * 6));
-      u.body.position.y = (this.kind === 'gallina' ? 0.34 : 0.42) + Math.abs(Math.sin(this.phase)) * 0.04;
+      u.body.position.y = K.bodyY + Math.abs(Math.sin(this.phase)) * 0.04;
     } else {
       this.timer -= dt;
-      const peck = Math.max(0, Math.sin(Sim.time * 5 + this.phase));
-      u.head.rotation.x = peck * 0.6;
+      const peck = Math.max(0, Math.sin(Sim.time * (K.graze ? 5 : 2) + this.phase));
+      u.head.rotation.x = peck * (K.graze ? 0.6 : 0.15);
       if (this.timer <= 0 || wolves.length > 0) {
         if (this.pickTarget()) this.state = 'walk'; else this.timer = rand(0.5, 1.5);
       }
@@ -135,7 +177,7 @@ export class Animal {
     this.pos.y = terrainHeight(this.pos.x, this.pos.z);
   }
 }
-// Lobos: salen del bosque de noche, acechan a la gallina más cercana y huyen de los guardias.
+// Lobos: salen del bosque de noche, acechan a la gallina más cercana y huyen de guardias y perros.
 export const wolves = [];
 export class Wolf {
   constructor(x, z) {
@@ -182,6 +224,15 @@ export class Wolf {
           return;
         }
       }
+      for (const an of animals) {
+        if (an.kind !== 'perro' || an.removed) continue;
+        if (Math.hypot(an.pos.x - this.pos.x, an.pos.z - this.pos.z) < CONFIG.animals.dogScareRadius) {
+          this.flee();
+          if (ev) ev.scared++;
+          HUD.log('Los perros ahuyentan a un lobo a ladridos');
+          return;
+        }
+      }
       let prey = null, best = Infinity;
       for (const an of animals) {
         if (an.kind !== 'gallina' || an.removed) continue;
@@ -220,34 +271,63 @@ export class Wolf {
 export function removeAllWolves() {
   for (const w of wolves.slice()) w.remove();
 }
-export function spawnAnimals(saved) {
+// Dónde vive cada especie: gallinas y cerdos junto a las casas y la granja, caballos en el prado y el castillo, perros en las puertas.
+export function animalSpot(kind, i) {
   const c1 = Graph.node('casa1'), c2 = Graph.node('casa2'), g = Graph.node('granja');
-  const chickenSpots = [
-    new THREE.Vector3(c1.x + 8, 0, c1.z + 8), new THREE.Vector3(c2.x - 10, 0, c2.z + 3), new THREE.Vector3(g.x - 4, 0, g.z + 3)
-  ];
-  const pigSpots = [new THREE.Vector3(g.x - 2, 0, g.z + 6), new THREE.Vector3(c2.x - 11, 0, c2.z + 2)];
-  const nChickens = saved ? saved.filter(s => s.kind === 'gallina').length : CONFIG.animals.gallinas;
-  const nPigs = saved ? saved.filter(s => s.kind === 'cerdo').length : CONFIG.animals.cerdos;
-  for (let i = 0; i < nChickens; i++) new Animal('gallina', chickenSpots[i % chickenSpots.length]);
-  for (let i = 0; i < nPigs; i++) new Animal('cerdo', pigSpots[i % pigSpots.length]);
+  let spots;
+  if (kind === 'gallina') spots = [new THREE.Vector3(c1.x + 8, 0, c1.z + 8), new THREE.Vector3(c2.x - 10, 0, c2.z + 3), new THREE.Vector3(g.x - 4, 0, g.z + 3)];
+  else if (kind === 'cerdo') spots = [new THREE.Vector3(g.x - 2, 0, g.z + 6), new THREE.Vector3(c2.x - 11, 0, c2.z + 2)];
+  else if (kind === 'caballo') spots = [new THREE.Vector3(g.x + 10, 0, g.z - 3), World.anchors.castillo ? World.anchors.castillo.clone().add(new THREE.Vector3(7, 0, 4)) : new THREE.Vector3(c1.x + 10, 0, c1.z + 4)];
+  else spots = World.homes.length ? World.homes.map(h => h.door) : [new THREE.Vector3(c1.x, 0, c1.z)];
+  return spots[i % spots.length];
+}
+export function countKind(kind) {
+  let n = 0;
+  for (const a of animals) if (a.kind === kind && !a.removed) n++;
+  return n;
+}
+export function spawnAnimals(saved) {
+  const counts = { gallina: CONFIG.animals.gallinas, cerdo: CONFIG.animals.cerdos, perro: CONFIG.animals.perros, caballo: CONFIG.animals.caballos };
   if (saved) {
-    const chickens = animals.filter(a => a.kind === 'gallina'), pigs = animals.filter(a => a.kind === 'cerdo');
-    let ci = 0, pi = 0;
+    for (const k in counts) counts[k] = 0;
+    for (const s of saved) if (KINDS[s.kind]) counts[s.kind] = (counts[s.kind] || 0) + 1;
+  }
+  const made = {};
+  for (const k in counts) {
+    made[k] = [];
+    for (let i = 0; i < counts[k]; i++) made[k].push(new Animal(k, animalSpot(k, i)));
+  }
+  if (saved) {
+    const idx = {};
     for (const s of saved) {
-      const a = s.kind === 'gallina' ? chickens[ci++] : pigs[pi++];
+      if (!KINDS[s.kind]) continue;
+      const a = made[s.kind][idx[s.kind] = (idx[s.kind] || 0)];
+      idx[s.kind]++;
       if (!a) continue;
       a.pos.set(s.x, terrainHeight(s.x, s.z), s.z);
       a.heading = s.h; a.targetHeading = s.h;
     }
   }
 }
-// Con el tiempo las gallinas se reponen: si quedan pocas, nace un pollo cerca de la granja.
-export function replenishChickens() {
-  const chickens = animals.filter(a => a.kind === 'gallina' && !a.removed).length;
-  if (chickens >= CONFIG.animals.gallinas) return false;
-  const g = Graph.node('granja');
-  new Animal('gallina', new THREE.Vector3(g.x - 4, 0, g.z + 3));
-  return true;
+// Con los días la granja se repone: pollos si faltan gallinas, un cachorro por cada tres casas, un potro si sobra comida.
+export function replenishAnimals(day) {
+  const A = CONFIG.animals;
+  let out = null;
+  if (day % 3 === 0 && countKind('gallina') < A.gallinas) new Animal('gallina', animalSpot('gallina', 2));
+  const dogsWanted = Math.min(A.maxPerros, 1 + Math.floor(World.homes.length / 3));
+  if (countKind('perro') < dogsWanted && chance(0.5)) {
+    const n = countKind('perro');
+    new Animal('perro', animalSpot('perro', n));
+    out = 'Nace un cachorro que ya corretea entre las casas';
+  }
+  const horses = countKind('caballo');
+  if (horses >= 2 && horses < A.maxCaballos && Economy.stock.grano >= A.foalMinFood && chance(A.foalChancePerDay)) {
+    new Animal('caballo', animalSpot('caballo', horses));
+    Economy.take('grano', 10);
+    out = 'Nace un potro en el prado de la granja';
+  }
+  if (out) HUD.log(out);
+  return out;
 }
 export function serializeAnimals() {
   return animals.filter(a => !a.removed).map(a => ({ kind: a.kind, x: a.pos.x, z: a.pos.z, h: a.heading }));

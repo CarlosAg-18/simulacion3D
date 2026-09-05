@@ -81,6 +81,13 @@
   .hud-weather-name { font-size: 15px; font-weight: 600; color: var(--brass); }
   .hud-weather-sub { font-size: 12px; color: var(--ink-soft); }
   .hud-section { font-size: 12px; font-weight: 600; color: var(--ink-soft); margin: 7px 0 2px; }
+  .hud-alerts { margin: 4px 0 2px; padding: 5px 10px; border-left: 3px solid #D06A5A; background: rgba(208, 106, 90, 0.14); border-radius: var(--radius); font-size: 12.5px; color: #F2B4A4; }
+  .hud-alerts div + div { margin-top: 2px; }
+  .hud-fold { margin-top: 6px; }
+  .hud-fold summary { font-size: 12px; font-weight: 600; color: var(--ink-soft); cursor: pointer; list-style: none; display: flex; align-items: center; gap: 6px; margin: 0 0 2px; user-select: none; }
+  .hud-fold summary::-webkit-details-marker { display: none; }
+  .hud-fold summary::before { content: ''; width: 0; height: 0; border-left: 5px solid var(--brass); border-top: 4px solid transparent; border-bottom: 4px solid transparent; transition: transform 0.15s ease; }
+  .hud-fold[open] summary::before { transform: rotate(90deg); }
   .hud-grid {
     display: grid;
     grid-template-columns: 1fr auto;
@@ -195,13 +202,12 @@
 <div id="loading">Levantando el pueblo...</div>
 <button id="hud-toggle" type="button" aria-controls="hud" aria-expanded="true">Ocultar panel</button>
 <div id="hud" class="panel" aria-live="polite">
-  <h1>Pueblo de Valdecerro</h1>
+  <h1 id="hud-title">Aldea de Valdecerro</h1>
   <div class="hud-clock">
     <span class="hud-time" id="hud-time">06:30</span>
     <span class="hud-day" id="hud-day">Día 1</span>
   </div>
-  <div class="hud-phase" id="hud-phase">Amanecer</div>
-  <div class="hud-season" id="hud-season">Primavera, día 1 de 4, año 1</div>
+  <div class="hud-season" id="hud-season">Amanecer · Primavera, día 1 de 4, año 1</div>
   <div class="hud-weather">
     <span id="hud-weather-icon"></span>
     <span>
@@ -209,20 +215,25 @@
       <div class="hud-weather-sub" id="hud-weather-sub">Cielo despejado</div>
     </span>
   </div>
-  <div class="hud-section">Habitantes</div>
-  <div class="hud-grid cols2" id="hud-stats"></div>
-  <div class="hud-section">Almacén</div>
-  <div class="hud-grid cols2" id="hud-resources"></div>
+  <div class="hud-alerts" id="hud-alerts" hidden></div>
   <div class="hud-section">Pueblo</div>
-  <div class="hud-grid" id="hud-town"></div>
-  <div class="hud-section">Saber</div>
-  <div class="hud-grid" id="hud-tech"></div>
+  <div class="hud-grid cols2" id="hud-town"></div>
+  <div class="hud-section">Progreso y gobierno</div>
+  <div class="hud-grid" id="hud-progress"></div>
   <div class="bar-track hud-tech-track"><span class="bar-fill" id="hud-tech-bar" style="width:0%;background:#7FA7D6"></span></div>
-  <div class="hud-section">Señorío</div>
-  <div class="hud-grid" id="hud-ruler"></div>
-  <div class="hud-section">Historial</div>
-  <svg id="hud-chart" viewBox="0 0 240 56" preserveAspectRatio="none" aria-hidden="true"></svg>
-  <div class="hud-chart-legend" id="hud-chart-legend"></div>
+  <details class="hud-fold" open>
+    <summary>Almacén</summary>
+    <div class="hud-grid cols2" id="hud-resources"></div>
+  </details>
+  <details class="hud-fold">
+    <summary>Oficios y animales</summary>
+    <div class="hud-grid cols2" id="hud-stats"></div>
+  </details>
+  <details class="hud-fold">
+    <summary>Historial</summary>
+    <svg id="hud-chart" viewBox="0 0 240 56" preserveAspectRatio="none" aria-hidden="true"></svg>
+    <div class="hud-chart-legend" id="hud-chart-legend"></div>
+  </details>
   <div class="hud-log" id="hud-log"></div>
   <div class="hud-controls">
     <button id="btn-pause" type="button">Pausar</button>

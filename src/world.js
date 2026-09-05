@@ -3,8 +3,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CONFIG, PALETTE } from './config.js';
 import { rand, chance, pick, lerp, smoothstep, hex, TAU, rng, _v1, _dummy } from './utils.js';
-import { Render, World, CameraState } from './state.js';
-import { Terrain, terrainHeight, addFootprint, RoadField, _near, buildTerrain, rebuildTerrain, initNoise } from './terrain.js';
+import { Render, World, CameraState, Sim } from './state.js';
+import { Terrain, terrainHeight, addFootprint, RoadField, _near, buildTerrain, rebuildTerrain, initNoise, Water, initWater, isWater, streamDistance } from './terrain.js';
 import { Graph } from './graph.js';
 import { Assets, initAssets, mesh, std } from './assets.js';
 import { Economy } from './economy.js';
@@ -243,9 +243,22 @@ function buildBuildings() {
   placeGroup(B.makeCart(), g.x + 3, g.z - 9, -0.6);
   World.obstacles.push({ x: a.x + 6, z: a.z - 1, r: 2 }, { x: g.x + 3, z: g.z - 9, r: 2 });
   buildFences();
+  // Muelle en la orilla del lago, a la altura del agua y no del fondo excavado.
+  const lake = Water.lakes[0], ln = Graph.node('lago');
+  const ldir = _v1.set(ln.x - lake.x, 0, ln.z - lake.z).normalize();
+  const shoreR = 1.1 / Math.sqrt((ldir.x / lake.rx) ** 2 + (ldir.z / lake.rz) ** 2);
+  const px = lake.x + ldir.x * shoreR, pz = lake.z + ldir.z * shoreR;
+  const pier = B.makePier();
+  pier.position.set(px, Water.level + 0.25, pz);
+  pier.rotation.y = faceToward(px, pz, lake.x, lake.z);
+  pier.userData.static = true;
+  Render.scene.add(pier);
+  World.buildings.muelle = pier;
+  World.obstacles.push({ x: px, z: pz, r: 3 });
+  World.anchors.lago = new THREE.Vector3(lake.x + ldir.x * (shoreR + 3.2), 0, lake.z + ldir.z * (shoreR + 3.2));
   World.feria = B.makeFeriaTents();
   World.feria.position.set(0, terrainHeight(0, 0), 0);
-  World.cart = B.makeCart();
+  World.cart = B.makeCart(true);
   World.sunMesh = new THREE.Mesh(Assets.geo.sphere, Assets.mat.sun);
   World.sunMesh.scale.setScalar(9);
   World.moonMesh = new THREE.Mesh(Assets.geo.sphere, Assets.mat.moon);
@@ -336,6 +349,7 @@ export function spotIsClear(x, z, margin) {
 }
 export function isFreeSpot(x, z, margin) {
   if (Math.abs(x) > Terrain.half - 3 || Math.abs(z) > Terrain.half - 3) return false;
+  if (isWater(x, z) || streamDistance(x, z) < margin + 2) return false;
   RoadField.nearest(x, z, _near);
   if (_near.p && _near.d < CONFIG.road.width * 0.5 + margin) return false;
   if (!spotIsClear(x, z, margin)) return false;
@@ -452,7 +466,7 @@ export function hideTreesNear(x, z, r) {
 
 // Faroles: postes y linternas instanciados que se instalan por los caminos cuando se conoce el alumbrado.
 export const Lamps = {
-  list: [], posts: null, lanterns: null, lights: [],
+  list: [], posts: null, lanterns: null, lights: [], intensityMul: 1,
   init() {
     const N = CONFIG.lamps.max;
     const zero = new THREE.Matrix4().makeScale(0, 0, 0);
@@ -537,8 +551,14 @@ export const Lamps = {
     return placed;
   },
   setNight(f) {
-    Assets.mat.lantern.emissiveIntensity = f * 2.6;
-    for (let i = 0; i < this.lights.length; i++) this.lights[i].intensity = i < this.list.length ? f * 24 : 0;
+    Assets.mat.lantern.emissiveIntensity = f * 2.6 * this.intensityMul;
+    for (let i = 0; i < this.lights.length; i++) this.lights[i].intensity = i < this.list.length ? f * 24 * this.intensityMul : 0;
+  },
+  // Con las etapas la luz pasa del aceite al gas: más blanca y más fuerte.
+  setStyle(color, mul) {
+    this.intensityMul = mul;
+    Assets.mat.lantern.emissive.set(color);
+    for (const l of this.lights) l.color.set(color);
   },
   serialize() { return this.list.slice(); },
   restore(list) { if (list) for (const rec of list) this.addLamp(rec); }
@@ -577,14 +597,59 @@ export const Deposits = {
   }
 };
 
+// Lámina de agua única a la altura del nivel: asoma donde el terreno está excavado. Los cuerpos de agua
+// entran como obstáculos (círculos que cubren la elipse) para que nada se plante ni se pasee dentro.
+function buildWater() {
+  const geo = new THREE.PlaneGeometry(Terrain.size - 1, Terrain.size - 1, 1, 1);
+  geo.rotateX(-Math.PI / 2);
+  const m = new THREE.Mesh(geo, Assets.mat.lake);
+  m.position.y = Water.level;
+  m.receiveShadow = true;
+  Render.scene.add(m);
+  Water.mesh = m;
+  for (const l of Water.lakes) {
+    const big = Math.max(l.rx, l.rz), small = Math.min(l.rx, l.rz);
+    const off = (big - small) * 1.5;
+    World.obstacles.push({ x: l.x, z: l.z, r: small * 0.92 });
+    const ax = l.rx >= l.rz ? 1 : 0, az = 1 - ax;
+    World.obstacles.push({ x: l.x + ax * off, z: l.z + az * off, r: small * 0.9 }, { x: l.x - ax * off, z: l.z - az * off, r: small * 0.9 });
+  }
+  for (const s of Water.streams) for (let i = 0; i < s.pts.length; i += 2) World.obstacles.push({ x: s.pts[i].x, z: s.pts[i].z, r: s.width * 0.5 + 2.5 });
+  World.dynamics.push((dt) => {
+    Water.rise += (Water.riseTarget - Water.rise) * Math.min(1, dt * 0.4);
+    m.position.y = Water.level + Water.rise + Math.sin(Sim.time * 0.8) * 0.02;
+  });
+}
+// Donde un camino cruza un arroyo se tiende un puente, orientado con el camino y a su altura.
+export function addBridgesForEdge(e) {
+  for (let i = 1; i < e.pts.length - 1; i++) {
+    const p = e.pts[i];
+    let s = null;
+    for (const st of Water.streams) { let best = Infinity; for (const q of st.pts) best = Math.min(best, Math.hypot(q.x - p.x, q.z - p.z)); if (best < st.width * 0.5 + 0.6) { s = st; break; } }
+    if (!s) continue;
+    if (World.bridges.some(b => Math.hypot(b.x - p.x, b.z - p.z) < 9)) continue;
+    const a = e.pts[i - 1], b = e.pts[i + 1];
+    const g = B.makeBridge(s.width + 5);
+    const h = p.h !== undefined ? p.h : terrainHeight(p.x, p.z);
+    g.position.set(p.x, h + 0.1, p.z);
+    g.rotation.y = Math.atan2(b.x - a.x, b.z - a.z);
+    g.userData.static = true;
+    Render.scene.add(g);
+    if (Terrain.mesh && World.trees) mergeGroup(g);
+    World.bridges.push({ x: p.x, z: p.z });
+  }
+}
 export function populateScene() {
   initAssets();
   initNoise();
+  initWater();
   Graph.build();
   registerFootprints();
   buildTerrain(Render.scene);
+  buildWater();
   Graph.updateHeights();
   buildBuildings();
+  for (const e of Graph.edges) addBridgesForEdge(e);
   mergeStaticMeshes();
   buildVegetation();
   Deposits.init();
@@ -606,7 +671,11 @@ const SITE_RULES = {
   herreria: { anchors: () => ['almacen', 'mina', 'mercado'], margin: 6.5, node: true },
   molino: { anchors: () => ['granja'], margin: 6, node: true, dist: [14, 30] },
   torre: { anchors: () => ['castillo', 'bosque', 'mina', 'granja'], margin: 5, node: true, dist: [12, 28] },
-  granero: { anchors: () => ['almacen'], margin: 5.5, node: false, dist: [8, 16] }
+  granero: { anchors: () => ['almacen'], margin: 5.5, node: false, dist: [8, 16] },
+  ayuntamiento: { anchors: () => ['plaza', 'mercado', 'iglesia', 'taberna', 'castillo'], margin: 6.5, node: true, dist: [10, 30] },
+  hospital: { anchors: () => ['iglesia', 'plaza', 'taberna', 'botica', 'castillo', 'casa3'], margin: 6.5, node: true, dist: [10, 30] },
+  universidad: { anchors: () => ['escuela', 'iglesia', 'plaza', 'ayuntamiento', 'castillo', 'taberna'], margin: 7.5, node: true, dist: [12, 34] },
+  fabrica: { anchors: () => ['almacen', 'mina', 'herreria'], margin: 9, node: true, dist: [14, 34] }
 };
 export function findSite(type) {
   const plaza = Graph.node('plaza');
@@ -671,10 +740,11 @@ export function removeSiteVisual() {
   World.siteGroup = null;
 }
 let homeSerial = 5;
-const FOOTPRINT = { casa: 4, botica: 5, escuela: 5.6, herreria: 5.2, molino: 4.5, torre: 3.5, yacimiento: 5.5, granero: 4.5, campo: 7.5 };
+const FOOTPRINT = { casa: 4, botica: 5, escuela: 5.6, herreria: 5.2, molino: 4.5, torre: 3.5, yacimiento: 5.5, granero: 4.5, campo: 7.5, ayuntamiento: 7, hospital: 7, universidad: 8, fabrica: 8.5 };
 const FACTORY = {
   casa: () => B.makeCottage(), botica: () => B.makeBotica(), escuela: () => B.makeEscuela(), herreria: () => B.makeHerreria(),
-  molino: () => B.makeMolino(), torre: () => B.makeTorre(), granero: () => B.makeGranary(), yacimiento: (rec) => B.makeDeposit(rec.kind)
+  molino: () => B.makeMolino(), torre: () => B.makeTorre(), granero: () => B.makeGranary(), yacimiento: (rec) => B.makeDeposit(rec.kind),
+  ayuntamiento: () => B.makeAyuntamiento(), hospital: () => B.makeHospital(), universidad: () => B.makeUniversidad(), fabrica: () => B.makeFabrica()
 };
 function hasNode(type) { return type !== 'granero' && type !== 'campo'; }
 // Fase 1: grafo, huellas y caminos. Debe ir antes de recalcular el terreno.
@@ -692,6 +762,7 @@ export function prepareConstruction(rec) {
       const e = Graph.addEdge(rec.key, rec.edgeTo, rec.offsets);
       rec.offsets = e.offsets;
       Graph.computeRoutes();
+      addBridgesForEdge(e);
     }
     hideTreesNear(rec.node.x, rec.node.z, 4);
     for (const e of Graph.edges) if (e.a === rec.key || e.b === rec.key) for (let i = 0; i < e.pts.length; i += 3) hideTreesNear(e.pts[i].x, e.pts[i].z, 3.5);
@@ -723,7 +794,23 @@ export function realizeConstruction(rec) {
     World.anchors[rec.key] = spot.anchor;
     if (rec.type === 'botica') World.botica = spot;
     else if (rec.type === 'escuela') World.escuela = spot;
-    else if (rec.type === 'molino') {
+    else if (rec.type === 'hospital') World.hospital = spot;
+    else if (rec.type === 'universidad') World.universidad = spot;
+    else if (rec.type === 'ayuntamiento') World.ayuntamiento = spot;
+    else if (rec.type === 'fabrica') {
+      World.fabrica = spot;
+      const puffs = g.userData.smoke;
+      World.dynamics.push((dt) => {
+        for (let i = 0; i < puffs.length; i++) {
+          const p = puffs[i];
+          p.position.y += dt * 0.9;
+          if (p.position.y > 6.5) p.position.y -= 6.5;
+          const t = p.position.y / 6.5;
+          p.scale.setScalar(0.6 + t * 1.3);
+          p.position.x = Math.sin(Sim.time * 0.7 + i) * 0.5 * t;
+        }
+      });
+    } else if (rec.type === 'molino') {
       const blades = g.userData.blades;
       World.dynamics.push((dt) => { blades.rotation.z += dt * 0.9; });
     } else if (rec.type === 'yacimiento') {

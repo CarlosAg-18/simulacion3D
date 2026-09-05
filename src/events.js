@@ -13,6 +13,7 @@ import { makeFlame } from './buildings.js';
 import { Deposits } from './world.js';
 import { Tech, Ruler } from './tech.js';
 import { Growth } from './growth.js';
+import { Exogenous } from './exogenos.js';
 
 function makeFeria() {
   return {
@@ -99,6 +100,8 @@ function makeCaravana() {
       if (r.bought.length) parts.push(`vende ${r.bought.join(', ')}`);
       if (!parts.length) HUD.log('La caravana no encuentra nada que comerciar');
       else HUD.log(`La caravana ${parts.join(' y ')}; el pueblo ${r.net >= 0 ? 'gana' : 'gasta'} ${Math.abs(Math.round(r.net))} monedas`);
+      // Con la mercancía llegan noticias, semillas, animales, gentes y a veces fiebres.
+      Exogenous.onCaravan();
     },
     end() {
       if (this.cartPhase !== 'done') Render.scene.remove(World.cart);
@@ -302,7 +305,11 @@ export const Events = {
       this.timer -= dt;
       if (this.timer <= 0) {
         // Los lobos solo salen de noche; el incendio necesita alguna casa habitada.
+        const q = Ruler.policy === 'cuarentena';
         const bias = {
+          feria: q ? 0 : 1 + Exogenous.customs.length * 0.4,
+          misa: q ? 0 : 1,
+          mercado: q ? 0 : 1,
           lobos: DayCycle.isNight() ? 1 : 0,
           incendio: World.homes.length ? 1 : 0,
           expedicion: Tech.has('cartografia') && Deposits.undiscovered().length > 0 && !DayCycle.isNight() ? 1 : 0

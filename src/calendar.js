@@ -1,15 +1,16 @@
 import { CONFIG, PALETTE } from './config.js';
-import { lerp, smoothstep, hex, TAU, _c1 } from './utils.js';
+import { lerp, smoothstep, hex, TAU, _c1, _c2 } from './utils.js';
 import { Render, World } from './state.js';
 import { Assets } from './assets.js';
 import { Terrain } from './terrain.js';
 import { Weather } from './weather.js';
 import { HUD } from './hud.js';
 import { Crops, Lamps } from './world.js';
+import { Exogenous } from './exogenos.js';
 
 const SKY = { day: hex(PALETTE.skyDay), dawn: hex(PALETTE.skyDawn), dusk: hex(PALETTE.skyDusk), night: hex(PALETTE.skyNight) };
 const SUN_WARM = hex(0xFFB070), SUN_WHITE = hex(0xFFF4E0), GREY = hex(0x6E7783), COLD = hex(0x9FB4C8), WHITE = hex(0xFFFFFF);
-const SUN_HIGH = hex(0xFFF3C4), SNOW = hex(0xE8EEF5);
+const SUN_HIGH = hex(0xFFF3C4), SNOW = hex(0xE8EEF5), DRY_GRASS = hex(0xD9C070), DRY_CROP = hex(0xB8A050);
 const GROUND_TINT = hex(PALETTE.grass);
 const grassTints = {}, leafTints = {};
 for (const s of CONFIG.calendar.seasons) { grassTints[s] = hex(CONFIG.calendar.grassTint[s]); leafTints[s] = hex(CONFIG.calendar.leafTint[s]); }
@@ -123,9 +124,11 @@ export function applyLighting() {
   Assets.mat.sun.color.lerpColors(SUN_WARM, SUN_HIGH, smoothstep(0, 0.4, elev));
   // Paleta estacional: los tintes se aproximan suavemente para que el cambio de estación no sea un salto.
   const k = 0.02;
-  DayCycle.grassTint.lerp(grassTints[DayCycle.season], k);
+  // En sequía la hierba y los cultivos amarillean.
+  _c2.copy(grassTints[DayCycle.season]).lerp(DRY_GRASS, Exogenous.dryness * 0.75);
+  DayCycle.grassTint.lerp(_c2, k);
   DayCycle.leafTint.lerp(leafTints[DayCycle.season], k);
   Terrain.mesh.material.color.copy(DayCycle.grassTint).lerp(SNOW, snow * 0.8);
   Assets.mat.canopy.color.copy(DayCycle.leafTint).lerp(SNOW, snow * 0.5);
-  Assets.mat.crop.color.copy(Crops.tint);
+  Assets.mat.crop.color.copy(Crops.tint).lerp(DRY_CROP, Exogenous.dryness * 0.8);
 }

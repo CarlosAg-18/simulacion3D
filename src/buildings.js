@@ -327,7 +327,7 @@ export function makeHayPile() {
   g.userData.radius = 1.8;
   return g;
 }
-export function makeCart() {
+export function makeCart(withHorse) {
   const g = new THREE.Group();
   const m = Assets.mat, ge = Assets.geo;
   g.add(mesh(ge.box, m.wood, 0, 0.95, 0, 1.6, 0.7, 2.6));
@@ -337,6 +337,14 @@ export function makeCart() {
   g.add(w1); g.add(w2);
   g.add(mesh(ge.box, m.wood, -0.5, 0.75, 1.9, 0.12, 0.12, 1.6));
   g.add(mesh(ge.box, m.wood, 0.5, 0.75, 1.9, 0.12, 0.12, 1.6));
+  if (withHorse) {
+    const h = makeHorse();
+    h.position.set(0, 0, 3.4);
+    h.scale.setScalar(0.85);
+    g.add(h);
+    g.add(mesh(ge.box, m.wood, -0.4, 0.75, 2.7, 0.1, 0.1, 1.6));
+    g.add(mesh(ge.box, m.wood, 0.4, 0.75, 2.7, 0.1, 0.1, 1.6));
+  }
   g.userData.wheels = [w1, w2];
   g.userData.radius = 1.6;
   return g;
@@ -397,6 +405,168 @@ export function makeFeriaTents() {
   }
   flags.castShadow = false;
   g.add(flags);
+  return g;
+}
+// Caballo: cuerpo, cuello inclinado con crin, cabeza, cola y cuatro patas. La cabeza baja al pastar.
+export function makeHorse() {
+  const g = new THREE.Group();
+  const m = Assets.mat, ge = Assets.geo;
+  const body = mesh(ge.box, m.horse, 0, 1.05, 0, 0.62, 0.62, 1.5);
+  g.add(body);
+  for (const [x, z] of [[-0.2, 0.5], [0.2, 0.5], [-0.2, -0.5], [0.2, -0.5]]) g.add(mesh(ge.box, m.horseDark, x, 0.4, z, 0.16, 0.8, 0.16));
+  const head = new THREE.Group();
+  head.position.set(0, 1.3, 0.7);
+  const neck = mesh(ge.box, m.horse, 0, 0.3, 0.2, 0.3, 0.8, 0.34); neck.rotation.x = -0.6; neck.castShadow = false;
+  const skull = mesh(ge.box, m.horse, 0, 0.62, 0.62, 0.26, 0.28, 0.6); skull.castShadow = false;
+  const mane = mesh(ge.box, m.horseDark, 0, 0.55, 0.05, 0.1, 0.7, 0.3); mane.rotation.x = -0.6; mane.castShadow = false;
+  const earL = mesh(ge.cone4, m.horseDark, -0.1, 0.82, 0.45, 0.06, 0.16, 0.06); earL.castShadow = false;
+  const earR = mesh(ge.cone4, m.horseDark, 0.1, 0.82, 0.45, 0.06, 0.16, 0.06); earR.castShadow = false;
+  head.add(neck, skull, mane, earL, earR);
+  g.add(head);
+  const tail = mesh(ge.box, m.horseDark, 0, 0.95, -0.85, 0.12, 0.6, 0.14); tail.rotation.x = 0.35; tail.castShadow = false;
+  g.add(tail);
+  g.userData.head = head; g.userData.body = body;
+  return g;
+}
+export function makeDog() {
+  const g = new THREE.Group();
+  const m = Assets.mat, ge = Assets.geo;
+  const body = mesh(ge.box, m.dog, 0, 0.42, 0, 0.3, 0.3, 0.75);
+  g.add(body);
+  for (const [x, z] of [[-0.1, 0.26], [0.1, 0.26], [-0.1, -0.26], [0.1, -0.26]]) g.add(mesh(ge.box, m.dogDark, x, 0.15, z, 0.09, 0.3, 0.09));
+  const head = new THREE.Group();
+  head.position.set(0, 0.55, 0.42);
+  const skull = mesh(ge.box, m.dog, 0, 0, 0, 0.28, 0.24, 0.3); skull.castShadow = false;
+  const snout = mesh(ge.box, m.dogDark, 0, -0.05, 0.22, 0.14, 0.12, 0.18); snout.castShadow = false;
+  const earL = mesh(ge.box, m.dogDark, -0.13, 0.1, -0.05, 0.08, 0.16, 0.06); earL.castShadow = false;
+  const earR = mesh(ge.box, m.dogDark, 0.13, 0.1, -0.05, 0.08, 0.16, 0.06); earR.castShadow = false;
+  head.add(skull, snout, earL, earR);
+  g.add(head);
+  const tail = mesh(ge.box, m.dog, 0, 0.6, -0.42, 0.07, 0.32, 0.07); tail.rotation.x = -0.6; tail.castShadow = false;
+  g.add(tail);
+  g.userData.head = head; g.userData.body = body;
+  return g;
+}
+// Muelle: tablas sobre postes que se adentran en el lago, una barca amarrada y un cobertizo para el pescado.
+export function makePier() {
+  const g = new THREE.Group();
+  const m = Assets.mat, ge = Assets.geo;
+  g.add(mesh(ge.box, m.woodLight, 0, 0.55, 4.5, 2.4, 0.16, 9.5));
+  for (const z of [1, 4, 7, 9]) for (const x of [-1.0, 1.0]) g.add(mesh(ge.box, m.wood, x, -0.3, z, 0.22, 1.9, 0.22));
+  for (const z of [2, 5, 8]) g.add(mesh(ge.box, m.wood, 1.2, 0.9, z, 0.1, 0.55, 0.1));
+  g.add(mesh(ge.cyl, m.wood, -0.9, 0.85, 9.0, 0.28, 0.5, 0.28));
+  const boat = new THREE.Group();
+  boat.position.set(2.6, 0.15, 6.5);
+  boat.add(mesh(ge.box, m.wood, 0, 0.2, 0, 1.2, 0.45, 2.8));
+  boat.add(mesh(ge.box, m.woodLight, 0, 0.45, 0, 1.0, 0.08, 2.4));
+  boat.add(mesh(ge.box, m.wood, 0, 0.3, 1.6, 0.6, 0.4, 0.6, Math.PI / 4));
+  g.add(boat);
+  g.add(mesh(ge.box, m.wood, -2.6, 1.0, 0.2, 2.6, 2.0, 2.2));
+  g.add(mesh(ge.prism, m.thatch, -2.6, 2.0, 0.2, 3.2, 1.0, 2.8));
+  g.add(mesh(ge.cyl, m.wood, -1.0, 0.45, -0.6, 0.35, 0.7, 0.35));
+  g.userData.radius = 3.5;
+  return g;
+}
+// Puente de tablas con barandas y estribos de piedra; cruza un arroyo por donde pasa un camino.
+export function makeBridge(len) {
+  const g = new THREE.Group();
+  const m = Assets.mat, ge = Assets.geo;
+  g.add(mesh(ge.box, m.woodLight, 0, 0.3, 0, 3.0, 0.22, len));
+  for (const x of [-1.4, 1.4]) {
+    g.add(mesh(ge.box, m.wood, x, 0.85, 0, 0.12, 0.1, len));
+    for (const z of [-len / 2 + 0.3, 0, len / 2 - 0.3]) g.add(mesh(ge.box, m.wood, x, 0.6, z, 0.14, 0.7, 0.14));
+  }
+  g.add(mesh(ge.box, m.stoneDark, 0, 0.1, -len / 2, 3.4, 0.5, 0.8));
+  g.add(mesh(ge.box, m.stoneDark, 0, 0.1, len / 2, 3.4, 0.5, 0.8));
+  g.userData.radius = 0;
+  return g;
+}
+// Ayuntamiento: soportales, dos plantas y torre del reloj con la bandera del concejo.
+export function makeAyuntamiento() {
+  const g = new THREE.Group();
+  const m = Assets.mat, ge = Assets.geo;
+  g.add(mesh(ge.box, m.stoneDark, 0, 0.3, 0, 11.4, 0.6, 7.4));
+  g.add(mesh(ge.box, m.stone, 0, 3.6, -0.6, 11, 6.6, 6));
+  g.add(mesh(ge.prism, m.tile, 0, 6.9, -0.6, 12, 2.2, 7));
+  for (const x of [-4.4, -2.2, 0, 2.2, 4.4]) g.add(mesh(ge.cyl, m.stone, x, 1.5, 3.2, 0.32, 3.0, 0.32));
+  g.add(mesh(ge.box, m.stone, 0, 3.15, 3.2, 11, 0.3, 1.2));
+  g.add(mesh(ge.box, m.wood, 0, 1.2, 2.45, 1.6, 2.4, 0.14));
+  for (const x of [-3.6, 3.6]) addWindow(g, x, 1.6, 2.45, 1.0, 1.2);
+  for (const x of [-3.6, -1.2, 1.2, 3.6]) addWindow(g, x, 4.9, 2.45, 0.9, 1.3);
+  g.add(mesh(ge.box, m.stone, 3.5, 9.5, -1.5, 2.6, 5.4, 2.6));
+  g.add(mesh(ge.cone4, m.slate, 3.5, 13.2, -1.5, 2.2, 2.2, 2.2, Math.PI / 4));
+  const clock = mesh(ge.cyl, m.plaster, 3.5, 10.6, -0.12, 0.8, 0.1, 0.8);
+  clock.rotation.x = Math.PI / 2;
+  g.add(clock);
+  g.add(mesh(ge.box, m.dark, 3.5, 10.85, -0.02, 0.06, 0.55, 0.05));
+  g.add(mesh(ge.box, m.wood, 3.5, 15.0, -1.5, 0.14, 1.6, 0.14));
+  g.add(mesh(ge.box, Assets.roleColors.alcalde, 4.0, 15.5, -1.5, 1.0, 0.55, 0.06));
+  g.userData.radius = 7;
+  return g;
+}
+// Hospital: nave larga encalada con cruz en la fachada, dos chimeneas y bancos al sol.
+export function makeHospital() {
+  const g = new THREE.Group();
+  const m = Assets.mat, ge = Assets.geo;
+  g.add(mesh(ge.box, m.stoneDark, 0, 0.3, 0, 12.4, 0.6, 6.4));
+  g.add(mesh(ge.box, m.plaster, 0, 2.6, 0, 12, 4.6, 6));
+  g.add(mesh(ge.prism, m.tile, 0, 4.9, 0, 13, 2.4, 7));
+  g.add(mesh(ge.box, m.wood, 0, 1.2, 3.05, 1.8, 2.4, 0.14));
+  for (const x of [-4.5, -2.6, 2.6, 4.5]) { addWindow(g, x, 1.6, 3.05, 0.9, 1.1); addWindow(g, x, 3.7, 3.05, 0.8, 0.9); }
+  g.add(mesh(ge.box, m.cross, 0, 3.9, 3.1, 0.3, 1.2, 0.12));
+  g.add(mesh(ge.box, m.cross, 0, 3.9, 3.1, 1.2, 0.3, 0.12));
+  g.add(mesh(ge.box, m.stoneDark, -4, 6.6, -1.5, 0.8, 2.0, 0.8));
+  g.add(mesh(ge.box, m.stoneDark, 4, 6.6, -1.5, 0.8, 2.0, 0.8));
+  for (const x of [-3.2, 3.2]) g.add(mesh(ge.box, m.wood, x, 0.45, 4.6, 2.4, 0.16, 0.5));
+  g.add(mesh(ge.prism, m.herb, 5.2, 2.0, 3.5, 2.4, 0.5, 1.4));
+  g.userData.radius = 7;
+  return g;
+}
+// Universidad: pórtico de columnas con frontón, escalinata y cúpula.
+export function makeUniversidad() {
+  const g = new THREE.Group();
+  const m = Assets.mat, ge = Assets.geo;
+  g.add(mesh(ge.box, m.stoneDark, 0, 0.45, 0, 14.4, 0.9, 9.4));
+  g.add(mesh(ge.box, m.marble, 0, 3.6, -0.5, 14, 5.4, 8));
+  g.add(mesh(ge.prism, m.slate, 0, 6.3, -0.5, 15, 2.0, 9));
+  for (const x of [-4.5, -2.25, 0, 2.25, 4.5]) g.add(mesh(ge.cyl, m.marble, x, 2.9, 4.2, 0.4, 4.8, 0.4));
+  g.add(mesh(ge.box, m.marble, 0, 5.5, 4.2, 11, 0.6, 2.2));
+  g.add(mesh(ge.prism, m.marble, 0, 5.8, 4.2, 11.6, 1.6, 2.6));
+  for (let i = 0; i < 3; i++) g.add(mesh(ge.box, m.stone, 0, 0.75 + i * 0.3, 6.0 - i * 0.5, 8 - i * 0.6, 0.3, 1.2));
+  g.add(mesh(ge.box, m.wood, 0, 1.9, 3.5, 2.0, 2.8, 0.14));
+  for (const x of [-5, -3, 3, 5]) { addWindow(g, x, 2.0, 3.5, 0.9, 1.4); addWindow(g, x, 4.6, 3.5, 0.9, 1.2); }
+  g.add(mesh(ge.cyl, m.marble, 0, 7.6, -1.5, 2.6, 1.4, 2.6));
+  g.add(mesh(ge.sphere, m.slate, 0, 8.3, -1.5, 2.8, 2.4, 2.8));
+  g.add(mesh(ge.box, m.gold, 0, 10.9, -1.5, 0.2, 1.0, 0.2));
+  g.userData.radius = 8;
+  return g;
+}
+// Fábrica: nave de ladrillo con tejado en dientes de sierra y chimenea que humea (parte dinámica).
+export function makeFabrica() {
+  const g = new THREE.Group();
+  const m = Assets.mat, ge = Assets.geo;
+  g.add(mesh(ge.box, m.stoneDark, 0, 0.3, 0, 14.4, 0.6, 9.4));
+  g.add(mesh(ge.box, m.brick, 0, 3.3, 0, 14, 6, 9));
+  for (const x of [-4.7, 0, 4.7]) g.add(mesh(ge.prism, m.slate, x, 6.3, 0, 4.9, 2.0, 9.4));
+  g.add(mesh(ge.box, m.dark, 0, 1.6, 4.55, 3.0, 3.2, 0.14));
+  for (const x of [-5, -2.5, 2.5, 5]) { addWindow(g, x, 3.6, 4.55, 1.2, 1.8); addWindow(g, x, 3.6, -4.55, 1.2, 1.8); }
+  g.add(mesh(ge.cyl, m.brick, 5.2, 9, -2.8, 1.0, 12, 1.0));
+  g.add(mesh(ge.cyl, m.dark, 5.2, 15.1, -2.8, 1.15, 0.4, 1.15));
+  const smoke = new THREE.Group();
+  smoke.userData.dynamic = true;
+  smoke.position.set(5.2, 15.5, -2.8);
+  const puffs = [];
+  for (let i = 0; i < 4; i++) {
+    const s = mesh(ge.sphereLow, m.smoke, 0, i * 1.5, 0, 0.8 + i * 0.35, 0.7 + i * 0.3, 0.8 + i * 0.35);
+    s.castShadow = false;
+    smoke.add(s);
+    puffs.push(s);
+  }
+  g.add(smoke);
+  g.userData.smoke = puffs;
+  g.add(mesh(ge.box, m.wood, -8.2, 0.6, 2.5, 1.6, 0.9, 2.4));
+  g.add(mesh(ge.box, Assets.resourceColors.mineral, -8.2, 1.25, 2.5, 1.3, 0.5, 2.0));
+  g.userData.radius = 8.5;
   return g;
 }
 export function randomRotation() { return rand(0, TAU); }

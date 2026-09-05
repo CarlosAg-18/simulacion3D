@@ -8,6 +8,8 @@ import { HUD } from './hud.js';
 import { Agent, Relations, STATE } from './agents.js';
 import { AgentRenderer } from './agentmesh.js';
 import { Tech, Ruler } from './tech.js';
+import { Eras } from './eras.js';
+import { Exogenous } from './exogenos.js';
 import { findSite, createSiteVisual, updateSiteVisual, removeSiteVisual, finishConstruction, addGrave } from './world.js';
 
 // Crecimiento del pueblo: obras autónomas, parejas, nacimientos, llegadas y niños que crecen.
@@ -26,6 +28,8 @@ export const Growth = {
   residents() { let n = 0; for (const a of agents) if (a.isResident && !a.removed) n++; return n; },
   housingCapacity() { return World.homes.length * CONFIG.growth.housingPerCottage; },
   countType(type) { let n = 0; for (const c of World.constructions) if (c.type === type) n++; return n; },
+  // Cada etapa permite más casas, campos y graneros.
+  maxOf(type) { const d = CONFIG.construction.types[type]; return d.max + (d.perEra || 0) * Eras.index; },
   builderCount() { let n = 0; for (const a of agents) if (a.activity === 'construir' && !a.removed) n++; return n; },
   sickCount() { let n = 0; for (const a of agents) if (a.sick && a.isResident && !a.removed) n++; return n; },
   // Muestra diaria para las gráficas del panel.
@@ -38,6 +42,7 @@ export const Growth = {
     this.deathsToday++;
     addGrave();
     HUD.log(`${agent.label} muere ${cause}`);
+    Exogenous.onDeath(agent, cause);
     Ruler.onDeath(agent);
   },
   update(dt) {
@@ -54,16 +59,20 @@ export const Growth = {
   chooseNeed() {
     const types = CONFIG.construction.types;
     const res = this.residents(), cap = this.housingCapacity();
-    const built = (t) => this.countType(t) >= types[t].max;
+    const built = (t) => this.countType(t) >= this.maxOf(t);
     if ((Economy.stock.grano < CONFIG.construction.foodTrigger || Economy.foodTrend() < -8) && !built('campo')) return 'campo';
     if (res / cap >= CONFIG.construction.housingTrigger - (Ruler.policy === 'expansion' ? 0.1 : 0) && !built('casa')) return 'casa';
     const sickRatio = res > 0 ? this.sickCount() / res : 0;
     if ((res >= CONFIG.construction.boticaPopulation || sickRatio >= CONFIG.construction.boticaSickRatio) && !built('botica')) return 'botica';
-    for (const t of ['escuela', 'molino', 'herreria', 'torre']) {
+    // Edificios de saber y de etapa: tras una peste el hospital pasa delante de todo.
+    const order = ['escuela', 'molino', 'herreria', 'torre', 'hospital', 'ayuntamiento', 'universidad', 'fabrica'];
+    if (Exogenous.epidemicsSeen > 0) order.splice(order.indexOf('hospital'), 1), order.unshift('hospital');
+    for (const t of order) {
       const def = types[t];
       if (built(t) || !Tech.has(def.tech)) continue;
       if (def.minResidents && res < def.minResidents) continue;
-      if (t === 'herreria' && Economy.stock.hierro < def.cost.hierro) continue;
+      if ((def.era || 0) > Eras.index) continue;
+      if (def.cost.hierro && Economy.stock.hierro < def.cost.hierro) continue;
       return t;
     }
     if (Economy.stock.grano > Economy.capacity('grano') * CONFIG.construction.storageTrigger && !built('granero')) return 'granero';
@@ -126,8 +135,11 @@ export const Growth = {
     for (const a of agents) if (!a.removed) counts[a.role] = (counts[a.role] || 0) + 1;
     if (World.botica && !(counts.curandero > 0)) return 'curandero';
     if (World.escuela && !(counts.sabio > 0)) return 'sabio';
+    if (World.universidad && (counts.sabio || 0) < 2) return 'sabio';
+    if (World.hospital && (counts.curandero || 0) < 2) return 'curandero';
     const s = Economy.stock;
     const weights = {
+      pescador: World.anchors.lago && (counts.pescador || 0) < 3 ? 0.7 + (s.grano < 60 ? 1.3 : 0) : 0,
       agricultor: 1.2 + (s.grano < 60 ? 2.5 : 0) + this.residents() / 10,
       lenador: 1 + (s.madera < 40 ? 2 : 0),
       minero: 0.9 + (s.mineral < 20 ? 1.2 : 0) + (s.piedra < 25 ? 0.8 : 0) + World.deposits.length * 0.6,
@@ -146,19 +158,24 @@ export const Growth = {
     }
     return best ? best.node : 'casa1';
   },
-  tryImmigration() {
-    const res = this.residents();
-    if (res >= this.housingCapacity() || res >= CONFIG.growth.maxPopulation || !AgentRenderer.hasRoom(4)) return;
-    if (Economy.foodPerCapita(res) < CONFIG.growth.immigrationFoodPerCapita) return;
-    const role = this.neededRole();
+  // Un colono nuevo con su oficio, ya asignado a una casa; lo usan la inmigración y las caravanas.
+  spawnImmigrant(role, entry) {
+    if (!AgentRenderer.hasRoom(4)) return null;
     const home = this.assignHome();
-    const entry = pick(BORDER_NODES);
     const a = new Agent(role, home, { spawnAt: entry });
     if (role === 'comerciante') a.stall = World.stalls[agents.filter(x => x.role === 'comerciante').length % World.stalls.length];
     if (role === 'agricultor') a.field = agents.filter(x => x.role === 'agricultor').length;
     if (role === 'guardia') { a.circuit = agents.find(x => x.role === 'guardia' && x !== a && x.circuit)?.circuit || ['castillo', 'plaza', 'mercado', 'plaza']; a.home = 'castillo'; }
     a.needs.hunger = 0.5;
-    HUD.log(`Llega ${a.name} por el camino ${Graph.node(entry).label} y se instala como ${a.roleWord}`);
+    return a;
+  },
+  tryImmigration() {
+    const res = this.residents();
+    if (res >= this.housingCapacity() || res >= Eras.maxPopulation() || !AgentRenderer.hasRoom(4)) return;
+    if (Economy.foodPerCapita(res) < CONFIG.growth.immigrationFoodPerCapita) return;
+    const entry = pick(BORDER_NODES);
+    const a = this.spawnImmigrant(this.neededRole(), entry);
+    if (a) HUD.log(`Llega ${a.name} por el camino ${Graph.node(entry).label} y se instala como ${a.roleWord}`);
   },
   formCouples() {
     const free = agents.filter(a => a.isResident && a.isAdult && !a.follow && a.partnerId === null && !a.removed && a.role !== 'clerigo');
@@ -196,7 +213,7 @@ export const Growth = {
     this.buildsToday = 0;
   },
   births(res) {
-    if (res >= CONFIG.growth.maxPopulation || res >= this.housingCapacity() || !AgentRenderer.hasRoom(4)) return;
+    if (res >= Eras.maxPopulation() || res >= this.housingCapacity() || !AgentRenderer.hasRoom(4)) return;
     if (Economy.foodPerCapita(res) < CONFIG.growth.birthFoodPerCapita) return;
     const seen = new Set();
     for (const a of agents) {
