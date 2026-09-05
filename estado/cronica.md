@@ -121,3 +121,26 @@ Cada entrada es un latido del servidor: la fecha real, el momento que vive el pu
 - Elena 119 proclama: decreto de saber: se protege a los estudiosos
 - Un lobo se lleva una gallina
 - Un lobo se lleva una gallina
+
+## 2026-09-05 02:57 UTC · Día 324, primavera del año 21, 00:04
+- 39 habitantes, 183 difuntos en total, 21 obras levantadas, tesoro de 1437 monedas. Grano 534, madera 192, piedra 128.
+- Gobierna Teresa (decreto: saber), popularidad 46 %.
+- Saberes: arado, cartografia, alumbrado, medicina, escuela, molino, vigia, herreria, orfebreria.
+- Desde el último latido pasaron 73 días: la población pasó de 40 a 39, hubo 44 difuntos.
+- 204 sucesos notables; los últimos:
+- Un lobo se lleva una gallina
+- Los lobos se retiran con 2 gallinas
+- Teresa proclama: decreto de cosecha: todos al campo
+- Carmen 102 la minera muere de vieja
+- Teresa proclama: decreto de saber: se protege a los estudiosos
+- Yago 89 y Esther 107 forman una familia
+- Carmen 140 la guardia muere de enfermedad
+- Hugo 97 el guardia muere de enfermedad
+- Llega Fabián 222 por el camino del oeste y se instala como minero
+- Llega Rocío 224 por el camino del este y se instala como minera
+- Nace Elena 225 en casa de Óscar 140 y Gonzalo 144
+- Aúllan lobos en el bosque; los guardias corren a la granja
+- Un lobo se lleva una gallina
+- Un lobo se lleva una gallina
+- Los lobos se retiran con 2 gallinas
+- Damián 116 el aldeano muere de viejo
