@@ -144,3 +144,27 @@ Cada entrada es un latido del servidor: la fecha real, el momento que vive el pu
 - Un lobo se lleva una gallina
 - Los lobos se retiran con 2 gallinas
 - Damián 116 el aldeano muere de viejo
+
+## 2026-09-05 08:02 UTC · Día 400, invierno del año 25, 07:51
+- 63 habitantes, 235 difuntos en total, 33 obras levantadas, tesoro de 1898 monedas. Grano 428, madera 200, piedra 103.
+- Gobierna Tomás (decreto: saber), popularidad 38 %.
+- Etapa: ciudad, gobernada por concejo.
+- Saberes: arado, cartografia, alumbrado, medicina, escuela, molino, vigia, herreria, orfebreria, acequias, concejo.
+- Desde el último latido pasaron 76 días: la población pasó de 39 a 63, hubo 52 difuntos, se levantaron 12 obras.
+- 360 sucesos notables; los últimos:
+- Los perros ahuyentan a un lobo a ladridos
+- Los lobos se retiran sin llevarse nada
+- Amanece el día 397: quedan 531 de comida para 64 habitantes; el concejo cobra 7 monedas
+- Mateo 57 y Sancho 66 forman una familia
+- Tomás proclama: decreto de saber: se protege a los estudiosos
+- Amanece el día 398: quedan 488 de comida para 64 habitantes; el concejo cobra 7 monedas
+- Aúllan lobos en el bosque; los guardias corren a la granja
+- Los perros ahuyentan a un lobo a ladridos
+- Los perros ahuyentan a un lobo a ladridos
+- Los lobos se retiran sin llevarse nada
+- Bruno 173 el agricultor muere de viejo
+- Amanece el día 399: quedan 437 de comida para 63 habitantes; el concejo cobra 7 monedas
+- Tomás y Zoe 54 forman una familia
+- Llega Sara 65 por el camino del oeste y se instala como agricultora
+- Beatriz la curandera muere de vieja
+- Amanece el día 400: quedan 414 de comida para 63 habitantes; el concejo cobra 7 monedas
