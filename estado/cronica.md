@@ -168,3 +168,27 @@ Cada entrada es un latido del servidor: la fecha real, el momento que vive el pu
 - Llega Sara 65 por el camino del oeste y se instala como agricultora
 - Beatriz la curandera muere de vieja
 - Amanece el día 400: quedan 414 de comida para 63 habitantes; el concejo cobra 7 monedas
+
+## 2026-09-05 13:15 UTC · Día 478, invierno del año 30, 08:11
+- 77 habitantes, 306 difuntos en total, 41 obras levantadas, tesoro de 2256 monedas. Grano 519, madera 196, piedra 72.
+- Gobierna Ramiro 62 (decreto: cosecha), popularidad 88 %.
+- Etapa: ciudad industrial, gobernada por concejo.
+- Saberes: arado, cartografia, alumbrado, medicina, escuela, molino, vigia, herreria, orfebreria, acequias, concejo, imprenta, hospital, universidad, vapor.
+- Desde el último latido pasaron 78 días: la población pasó de 63 a 77, hubo 71 difuntos, se levantaron 8 obras.
+- 480 sucesos notables; los últimos:
+- Aldo ya es adulto y se hace minero
+- Amanece el día 475: quedan 521 de comida para 76 habitantes; el concejo cobra 8 monedas
+- Gonzalo 60 y Gema 61 forman una familia
+- Se declara un incendio en casa de Inés 71
+- Amanece el día 476: quedan 537 de comida para 76 habitantes; el concejo cobra 8 monedas
+- Mateo y Zoe 65 forman una familia
+- Los vecinos apagan el incendio a cubos de agua del pozo
+- Pedro 64 y Inés 71 forman una familia
+- Ramiro 62 proclama: decreto de cosecha: todos al campo
+- Amanece el día 477: quedan 539 de comida para 76 habitantes; el concejo cobra 8 monedas
+- La caravana compra 40 de comida, 40 de madera, 20 de piedra, 40 de mineral, 30 de hierro, 40 de oro; el pueblo gana 1418 monedas
+- Llega Vicente 74 por el camino del norte y se instala como minero
+- Hugo el agricultor muere de viejo
+- Nace Hugo en casa de Lucía y Irene
+- Amanece el día 478: quedan 560 de comida para 77 habitantes; el concejo cobra 8 monedas
+- Sara y Leire forman una familia
