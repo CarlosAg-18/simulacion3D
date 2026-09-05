@@ -192,3 +192,27 @@ Cada entrada es un latido del servidor: la fecha real, el momento que vive el pu
 - Nace Hugo en casa de Lucía y Irene
 - Amanece el día 478: quedan 560 de comida para 77 habitantes; el concejo cobra 8 monedas
 - Sara y Leire forman una familia
+
+## 2026-09-05 16:32 UTC · Día 527, invierno del año 33, 12:09
+- 76 habitantes, 1 enfermos, 362 difuntos en total, 41 obras levantadas, tesoro de 2546 monedas. Grano 356, madera 155, piedra 95.
+- Gobierna Vicente (decreto: fiesta), popularidad 52 %.
+- Etapa: ciudad industrial, gobernada por concejo, 4 costumbres adoptadas.
+- Saberes: arado, cartografia, alumbrado, medicina, escuela, molino, vigia, herreria, orfebreria, acequias, concejo, imprenta, hospital, universidad, vapor.
+- Desde el último latido pasaron 49 días: la población pasó de 77 a 76, hubo 56 difuntos.
+- 306 sucesos notables; los últimos:
+- Los perros ahuyentan a un lobo a ladridos
+- Aldo 71 ya es adulto y se hace agricultor
+- Nace Vicente 70 en casa de Óscar y Pedro
+- Vicente proclama: decreto de fiesta: feria pagada por el castillo
+- Amanece el día 525: quedan 543 de comida para 76 habitantes; el concejo cobra 8 monedas
+- Los lobos se retiran sin llevarse nada
+- Teresa la agricultora muere de vieja
+- Elena ya es adulta y se hace agricultora
+- Vicente revalida la alcaldía en las elecciones del concejo
+- Amanece el día 526: quedan 478 de comida para 75 habitantes; el concejo cobra 8 monedas
+- Llega Gema 69 por el camino del oeste y se instala como agricultora
+- Aúllan lobos en el bosque; los guardias corren a la granja
+- Los perros ahuyentan a un lobo a ladridos
+- Los perros ahuyentan a un lobo a ladridos
+- Los lobos se retiran sin llevarse nada
+- Amanece el día 527: quedan 424 de comida para 76 habitantes; el concejo cobra 8 monedas
